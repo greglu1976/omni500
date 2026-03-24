@@ -35,7 +35,6 @@ class Application:
 
         self.re_ = None # УДАЛИТЬ ПОТОМ
         self.sum_table_type = 2  # По умолчанию выбран тип 2
-
         
     def setup_gui(self):
         dpg.create_context()

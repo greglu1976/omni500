@@ -2,18 +2,19 @@ import json
 from pathlib import Path
 from collections import defaultdict
 
-#path = Path(r'C:\Users\g.lubov.UNI-ENG\Desktop\ЮНИТ-СК\lib')
-path = Path(r'\\uni-eng.ru\unit\Ivanovo\Документация ЮНИТ М300\Разработка\Схемы ФБ ЮНИТ-М300\Проект\БД500')
+path = Path(r'\\uni-eng.ru\unit\Ivanovo\Документация ЮНИТ М300\Разработка\Схемы ФБ ЮНИТ-М300\Проект\БД500\ФСУ\Э2 03.01 (КСЗ+АУВ)_v3.JSON')
 
-
-def get_table_latex(version, func_type, lib_path, only):
-    full_path = path / version / lib_path
-    composition_path = full_path / "Composition.json"
+def get_table_latex(lib_path, only):
 
     # Загрузка JSON файла
-    with open(composition_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    with open(path, 'r', encoding='utf-8') as f:
+        functional_blocks = json.load(f)['Schema']['Info']['Composition']['FunctionalBlocks']
+    for fb in functional_blocks:
+        if isinstance(fb, dict) and fb.get('Name') == lib_path:
+            break
 
+    data=fb['Info']['Composition']
+   
     # Словарь для группировки уставок по макроблокам
     macro_settings = defaultdict(list)
 
@@ -32,7 +33,7 @@ def get_table_latex(version, func_type, lib_path, only):
 
         # Уставки
         for setting in macro.get("Settings", []):
-            setting_data = setting.get("Setting", {}).get("Data")
+            setting_data = setting.get("Setting", {}).get("OriginData")
             if setting_data and not setting_data.get("IsConstant", True):
                 # Формируем уставку без поля "MacroBlock" (оно будет на уровне группы)
                 setting_info = {
@@ -46,7 +47,8 @@ def get_table_latex(version, func_type, lib_path, only):
                     "Description": setting_data.get("Description"),
                     "IsConstant": setting_data.get("IsConstant"),
                     "DataType": setting_data.get("DataType"),
-                    #"Id": setting_data.get("Id")
+                    "PredefinedValues": get_PredefinedValues(setting_data.get("LogicValue")),
+                    "Id": setting_data.get("Id")
                 }
                 macro_settings[macro_name].append(setting_info)
 
@@ -61,7 +63,6 @@ def get_table_latex(version, func_type, lib_path, only):
             result.append({"MacroBlock": macro_name, "Settings": settings_list})
 
     return result
-
 
 def get_table_signals_FB(version, func_type, lib_path):
     full_path = path / version / lib_path
@@ -140,10 +141,6 @@ def get_table_signals_FB(version, func_type, lib_path):
     for o in outputs_list:
         print(f"[{o['MacroBlock']}] Выход: {o['ConnectedOutputBlocks'][0]['Name']} ")
 
-
-
-
-
 def get_table_signals_FSU(version, func_type, lib_path):
     path = Path(r'\\uni-eng.ru\unit\Ivanovo\Документация ЮНИТ М300\Разработка\Схемы ФБ ЮНИТ-М300\Проект\БД500')
     full_path = path / version / lib_path
@@ -205,8 +202,12 @@ def get_table_signals_FSU(version, func_type, lib_path):
 
     return outputs_list
 
-
-
+def get_PredefinedValues(data, field='DisplayText', separator=' \\\ ', sort_by=None):
+    items = data.get('PredefinedValues', [])
+    if sort_by:
+        items = sorted(items, key=lambda x: x[sort_by])
+    values = [item[field] for item in items if field in item]
+    return separator.join(values)
 
 
 

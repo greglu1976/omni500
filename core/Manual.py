@@ -8,6 +8,7 @@ from utils.abbrs import start_abbr
 from logger.logger import Logger
 
 from core.LIB500Manager import get_table_latex
+from core.FBData import FBData
 
 class Manual:
     def __init__(self, device_data):
@@ -105,11 +106,22 @@ class Manual:
                 str_ += ' & \centering '
                 str_ += str(setting["Name"])
                 str_ += ' & \centering '
-                str_ += f'{str(setting["Min"])} ... {str(setting["Max"])}'
-                str_ += ' & \centering '
-                str_ += str(setting["Unit"])
-                str_ += ' & \centering \\arraybackslash '
-                str_ += str(setting["Step"])
+                if setting["PredefinedValues"]=='':
+                    ############# Форматирование Min и Max к требуемому виду в РЭ ####################
+                    Min=FBData._format_by_step(FBData,setting["Min"],setting["Step"]).replace('.',',') 
+                    Max=FBData._format_by_step(FBData,setting["Max"],setting["Step"]).replace('.',',')
+                    ##################################################################################
+                    str_ += f'{str(Min)} ... {str(Max)}'
+                    str_ += ' & \centering '
+                    str_ += str(setting["Unit"])
+                    str_ += ' & \centering \\arraybackslash '
+                    str_ += str(setting["Step"]).replace('.',',')
+                else:
+                    str_ += str(setting["PredefinedValues"])
+                    str_ += ' & \centering '
+                    str_ += str("---")
+                    str_ += ' & \centering \\arraybackslash '
+                    str_ += str("---")
                 str_ += ' \\\\\n'  # Закрываем строку таблицы и переносим строку
                 table.append(str_)  # Добавляем строку таблицы
                 table.append('\\hline\n')  # Добавляем \hline отдельным элементом
@@ -118,49 +130,27 @@ class Manual:
 
     ##########################################################################
     ############################ ДЛЯ М500 ####################################
-    def _parse_start_tag1(self, raw_tag):
-        """
-        Парсит сырой тег вида: %===m>0.0.0.2|FB|ФБ РЗА/Защиты ЛЭП 110-220 кВ/АМТЗ
-        Возвращает: (версия, тип_функции, путь_функции)
-        """
-       
-        # Убираем префикс
-        clean = raw_tag[6:]  # Отрезаем '%===m>'
-        
-        # Разделяем на части
-        parts = clean.split('|', 2)
-        
-        if len(parts) < 3:
-            raise ValueError(f"Неверный формат: ожидается версия|тип|путь, получено: {clean}")
-        
-        version = parts[0].strip()
-        func_type = parts[1].strip()
-        path = parts[2].strip()
-        
-        return version, func_type, path
 
     def _parse_start_tag(self, raw_tag):
         """
         Полный парсинг тега
         """
-      
-        parts = raw_tag[6:].split('|', 2)
+    
+        parts = raw_tag[6:].split('|')
         
-        if len(parts) < 3:
+        if len(parts) not in (1, 2):
             raise ValueError(f"Неверный формат: {raw_tag}")
         
-        version, func_type, full_path = [p.strip() for p in parts]
-        
-        # Обрабатываем путь и имя функции
-        if '=' in full_path:
-            path_part, function_name = full_path.split('=', 1)
-            path_part = path_part.strip()
-            function_name = function_name.strip()
+        # Если есть разделитель и после него что-то есть
+        if len(parts) == 2:
+            path_part = parts[0].strip()
+            function_name = parts[1].strip() if parts[1].strip() else "-"
         else:
-            path_part = full_path
+            # Если разделителя нет
+            path_part = parts[0].strip()
             function_name = "-"
 
-        return version, func_type, path_part, function_name
+        return path_part, function_name
 
 
 ##########################################################################################
@@ -213,13 +203,13 @@ class Manual:
                             old_block.append(current_line)
                             i += 1
 
-                    # Парсим тэг (старое от М300 LN, FB и заголовок)
-                    version, func_type, lib_path, only = self._parse_start_tag(start_line)
+                    # Парсим тэг
+                    lib_path, only = self._parse_start_tag(start_line)
 
                     # Генерируем новое содержимое
                     latex_new = []
 
-                    settings_data = get_table_latex(version, func_type, lib_path, only)
+                    settings_data = get_table_latex (lib_path, only)
 
                     if settings_data:
                         latex_new = self._render_latex_settings_block(settings_data)
