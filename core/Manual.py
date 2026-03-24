@@ -204,12 +204,12 @@ class Manual:
                             i += 1
 
                     # Парсим тэг
-                    lib_path, only = self._parse_start_tag(start_line)
+                    lib_path, macroblock = self._parse_start_tag(start_line)
 
                     # Генерируем новое содержимое
                     latex_new = []
 
-                    settings_data = get_table_latex (lib_path, only)
+                    settings_data = get_table_latex (lib_path, macroblock)
 
                     if settings_data:
                         latex_new = self._render_latex_settings_block(settings_data)
