@@ -12,7 +12,7 @@ def get_table_latex(lib_path, macroblock):
     # Ищем нужный функциональный блок
     target_fb = None
     for fb in functional_blocks:
-        if isinstance(fb, dict) and fb.get('Name') == lib_path:
+        if isinstance(fb, dict) and fb.get('DisplayName') == lib_path:
             target_fb = fb
             break
     
@@ -49,7 +49,7 @@ def get_table_latex(lib_path, macroblock):
                 continue
             
             for macro in macro_blocks:
-                macro_name = macro.get("Name", "Безымянный")
+                macro_name = macro.get("DisplayName", "Безымянный")
                 
                 # Если macroblock задан как конкретное имя — пропускаем все, кроме него
                 if current_mode != "-" and macro_name != current_mode:
@@ -101,7 +101,7 @@ def get_table_latex(lib_path, macroblock):
         
         # Формируем результат для текущего режима
         for macro_name, settings_list in macro_settings.items():
-            if current_mode != "-" and current_mode != 'general':
+            if macroblock not in ("-", "general+-"):
                 # Заменяем имя макроблока на "-", если запрошен конкретный
                 all_results.append({"MacroBlock": "-", "Settings": settings_list})
             else:
