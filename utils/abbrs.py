@@ -59,18 +59,21 @@ def get_abbrs_new(word_list, abbr_dict):
     return word_list
 
 def get_abbrs(word_list):
+    # Список слов, которые нужно исключить (можно изменять внутри функции)
+    EXCLUDE_LIST = ["AB", "BC", "CA", "DZ", "II", "RS", "SF", "SFP", "SGF", "TOF", "TON", "TP", "UA", "UB", "UC", "UI", "UА", "UБНН", "UС", "VD", "АВ", "ЗАКАЗА", "ЗАЩИТ", "РЕМОНТ", "СХЕМ", "СХЕМЫ", "ФУНКЦИИ",
+                     "ЦЕПЕЙ", "KR", "KХ", "RJ", "RU", "АААА", "ВC", "ВЭД", "ИК", "ИЛИ", "ИС", "ИФ", "КОД", "НЕ", "НИ", "НК", "НФ", "ОКПД", "ООО", "ПАО", "РАБОТА", "СЕРВИС", "ТП", "ФЗ", "ФФ", "ЮНИТ", "ЮТКБ"]
+    
     # оставляем только слова по шаблону - первые две бкувы заглавные - остальные любые
     new_word_list = []
     for word in word_list:
-        cleaned_string = re.sub(r'^[\(]', '', word)
-        cleaned_string = re.sub(r'[\)\»]*$', '', cleaned_string)
-        cleaned_string = re.sub(r'\d+$', '', cleaned_string)
+        cleaned_string = re.sub(r'^[^A-Za-zА-Яа-я]+', '', word)
+        cleaned_string = re.sub(r'[^A-Za-zА-Яа-я]+$', '', cleaned_string)
         if re.match('^[A-ZА-Я]{2}[A-Za-zА-Яа-я~\s]*$', cleaned_string): #^[A-ZА-Я]{2}[A-Za-zА-Яа-я~\s]*$ # ^[A-ZА-Я]{2}[A-Za-zА-Яа-я]*$
             new_word_list.append(cleaned_string)
         
     abbrs = []
     for word in new_word_list:
-        if len(word)<=7:
+        if len(word)<=7 and word not in EXCLUDE_LIST:
             abbrs.append(word)
     set_abbrs = set(abbrs)
     return list(set_abbrs)

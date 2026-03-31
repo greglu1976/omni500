@@ -61,7 +61,7 @@ def get_table_latex(lib_path, macroblock):
                     if setting_data and not setting_data.get("IsConstant", True):
                         # Формируем уставку
                         setting_info = {
-                            "Name": setting_data.get("Name", "Безымянная уставка"),
+                            "Name": setting_data.get("Name", "Безымянная уставка").replace('_', ''),
                             "Value": setting_data.get("Value"),
                             "Unit": setting_data.get("Unit"),
                             "Min": setting_data.get("Min"),
@@ -84,7 +84,7 @@ def get_table_latex(lib_path, macroblock):
                 setting_data = setting.get("Setting", {}).get("OriginData")
                 if setting_data and not setting_data.get("IsConstant", True):
                     setting_info = {
-                        "Name": setting_data.get("Name", "Безымянная уставка"),
+                        "Name": setting_data.get("Name", "Безымянная уставка").replace('_', ''),
                         "Value": setting_data.get("Value"),
                         "Unit": setting_data.get("Unit"),
                         "Min": setting_data.get("Min"),
