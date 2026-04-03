@@ -12,13 +12,15 @@ sys.path.append(parent_dir)
 
 intro_strs = []
 intro_strs.append("\phantomsection"+"\n") # чтобы правильно генерировать ссылку
-intro_strs.append("\color{uniblue}\section*{\centering{\large{ПЕРЕЧЕНЬ СОКРАЩЕНИЙ}\color{white!0}<.>}}"+"\n") # в соответствии с ГОСТ 7.32 <.> тег чтобы форматирование не нарушалось
+intro_strs.append("\color{unidarkgreen}\section*{\centering{\large{ПЕРЕЧЕНЬ СОКРАЩЕНИЙ}}}"+"\n")
 intro_strs.append("\\addcontentsline{toc}{section}{Перечень сокращений}"+"\n") # строка для включения в содержание
+intro_strs.append("{\color{white}\\fontsize{0.1pt}{0.1pt}\selectfont<begABBRS>}"+"\n") # невидимый тег начала перечня сокращений
 intro_strs.append("\color{black}"+"\n")
 intro_strs.append('\\begin{longtable}{>{\\raggedright\\arraybackslash}m{2cm}>{\\raggedright\\arraybackslash}m{0.5cm}>{\\raggedright\\arraybackslash}m{20cm}}'+'\n')
 intro_strs.append('\endfirsthead\endhead\endfoot\endlastfoot'+'\n')
 outro_strs = []
-outro_strs.append('\end{longtable}')
+outro_strs.append('\end{longtable}'+'\n')
+outro_strs.append("{\color{white}\\fontsize{0.1pt}{0.1pt}\selectfont<endABBRS>}") # невидимый тег начала перечня сокращений
 
 abbrs = {
     'ОСФ':'Орган сравнения фаз',
@@ -60,7 +62,7 @@ def get_abbrs_new(word_list, abbr_dict):
 
 def get_abbrs(word_list):
     # Список слов, которые нужно исключить (можно изменять внутри функции)
-    EXCLUDE_LIST = ["AB", "BC", "CA", "DZ", "II", "RS", "SF", "SFP", "SGF", "TOF", "TON", "TP", "UA", "UB", "UC", "UI", "UА", "UБНН", "UС", "VD", "АВ", "ЗАКАЗА", "ЗАЩИТ", "РЕМОНТ", "СХЕМ", "СХЕМЫ", "ФУНКЦИИ",
+    EXCLUDE_LIST = ["AB", "BC", "CA", "DZ", "II", "RS", "SF", "SFP", "SGF", "TOF", "TON", "TP", "UA", "UB", "UC", "UI", "UА", "UБНН", "UС", "VD", "АВ", "ВС", "СА", "ЗАКАЗА", "ЗАЩИТ", "РЕМОНТ", "СХЕМ", "СХЕМЫ", "ФУНКЦИИ",
                      "ЦЕПЕЙ", "KR", "KХ", "RJ", "RU", "АААА", "ВC", "ВЭД", "ИК", "ИЛИ", "ИС", "ИФ", "КОД", "НЕ", "НИ", "НК", "НФ", "ОКПД", "ООО", "ПАО", "РАБОТА", "СЕРВИС", "ТП", "ФЗ", "ФФ", "ЮНИТ", "ЮТКБ"]
     
     # оставляем только слова по шаблону - первые две бкувы заглавные - остальные любые
@@ -79,25 +81,34 @@ def get_abbrs(word_list):
     return list(set_abbrs)
 
 def extract_words_from_pdf(pdf_path):
-    words = []  # Создаем пустой список для слов
-    inside_toa = False
-    doc = fitz.open(pdf_path)  # Открываем PDF файл
-    for page_number in range(doc.page_count):  # Перебираем все страницы
-        page = doc.load_page(page_number)  # Загружаем страницу
-        text = page.get_text("text")  # Получаем текст со страницы
-        if '<.>' in text:
-            inside_toa = True
-            continue
-        if inside_toa and '<ABBRS>' in text:
-            inside_toa = False
-            words += text.split()  # Добавляем слова в список
-            continue
-        if inside_toa and not '<ABBRS>' in text:
-            continue
-        if 'АСУ ТП' in text:
-            words.append('АСУ~ТП')
-        words += text.split()  # Добавляем слова в список
-    return words  # Возвращаем список слов
+    doc = fitz.open(pdf_path)
+    words = []
+    skip = False  # игнорировать слова, если True
+    for page in doc:
+        # Получаем текст страницы как строку
+        text = page.get_text("text")
+        # Объединяем "АСУ ТП" в "АСУ~ТП" (тильда предотвратит разбиение)
+        text = re.sub(r'АСУ\s+ТП', 'АСУ~ТП', text)
+        # Разбиваем текст на токены (по любым пробельным символам)
+        tokens = text.split()
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            # Обработка маркеров начала и конца таблицы
+            if token == '<begABBRS>':
+                skip = True
+                i += 1
+                continue
+            if token == '<endABBRS>':
+                skip = False
+                i += 1
+                continue
+            # Если не в режиме пропуска – добавляем слово
+            if not skip:
+                words.append(token)
+            i += 1 
+    doc.close()
+    return words
 
 #  переработаная функция для GUI
 def replace_pdf_with_attrs_txt(path):
@@ -172,7 +183,7 @@ def start_abbr(filepath):
     word_set = set(word_list_origin)
     word_list = sorted(list(word_set))
     # вытаскиваем абревиатуры
-    new_word_list = get_abbrs(word_list)
+    new_word_list = sorted(get_abbrs(word_list))
     Logger.info(new_word_list)
 
     # если список пустой возвращаемся
@@ -180,14 +191,26 @@ def start_abbr(filepath):
         Logger.info("Нет распознанных абревиатур в текущем файле pdf...")
         return 'noabbrs'
 
-    new_word_list = sorted(new_word_list)
     ####################################################
-    # выведем список аббревиатур в файл !!! для сбора словаря - потом можно отключить
-    # Имя файла, в который нужно сохранить список строк
-    # file_path = "abbrs.txt"
+    # Вывод списка аббревиатур в файл
     with open(path_to_pdf[2], 'w', encoding='utf-8') as file:
-        for line in new_word_list:
-            file.write(line + ', ')
+        file.write(', '.join(new_word_list))
+
+    with open('dictionary.json', 'r', encoding='utf-8') as f:
+        data = json.load(f)
+        # Извлекаем множество ключей (сокращений)
+        exclude_keys = set(data.keys())
+
+    # Фильтруем new_word_list, оставляя только те слова, которых нет в exclude_keys
+    new_abbrs = [word for word in new_word_list if word not in exclude_keys]
+
+    # Записываем (или перезаписываем) файл с двумя строками
+    with open(path_to_pdf[2], 'w', encoding='utf-8') as file:
+        file.write("Список всех найденных сокращений в general.pdf: " + ", ".join(new_word_list) + "\n")
+        file.write("Список новых сокращений для добавления в dictionary.json: " + ", ".join(new_abbrs))
+    
+    # Открытие файла, чтобы убедиться, что нет новых аббревиатур. Если есть, добавить новые аббревиатуры в dictionary.json
+    os.startfile(path_to_pdf[2])
     ####################################################
 
     # Ищем файл со словарем
