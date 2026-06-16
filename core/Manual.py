@@ -7,7 +7,7 @@ from pathlib import Path
 from utils.abbrs import start_abbr
 from logger.logger import Logger
 
-from core.LIB500Manager import get_table_latex
+from core.LIB500Manager import LIB500Manager
 from core.FBData import FBData
 
 class Manual:
@@ -15,6 +15,10 @@ class Manual:
         self.device_data = device_data
         self.path_to_latex_desc = device_data["path_to_latex_desc"]
         self.path_to_ru_desc = device_data["path_to_ru_desc"]
+
+        #self.path_to_json = device_data["path_to_json"]
+        self.meta_manager = LIB500Manager(device_data["path_to_json"])
+
         self.paths = []
 
     def __find_fbpath(self, tex_file_path):
@@ -73,26 +77,6 @@ class Manual:
     ###### Метод для обновления таблиц уставок в РЭ #########
     #########################################################
 
-    def _render_latex_settings_blockOLD(self, settings_data, header):
-        table = []
-        if header is not None and header != "":
-            head_latex = '\multicolumn{5}{|c|}{ ' + header + ' } \\\\ \hline \n'
-            table.append(head_latex)
-        for row in settings_data:
-            str_ = '\centering '
-            str_ += row[0].replace('_', r'\_')
-            str_ += ' & \centering '
-            str_ += row[1].replace('-', r'--').replace('_', r'\_')
-            str_ += ' & \centering '
-            str_ += row[2].replace('\n', r'\\')
-            str_ += ' & \centering '
-            str_ += row[3].replace('-', r'--').replace('%', r'\%')
-            str_ += ' & \centering \\arraybackslash '
-            str_ += row[4].replace('-', r'--')
-            str_ += ' \\\\\n'  # Закрываем строку таблицы и переносим строку
-            table.append(str_)  # Добавляем строку таблицы
-            table.append('\\hline\n')  # Добавляем \hline отдельным элементом
-        return table
 
     def _render_latex_settings_block(self, settings_data):
         table = []
@@ -209,7 +193,7 @@ class Manual:
                     # Генерируем новое содержимое
                     latex_new = []
 
-                    settings_data = get_table_latex (lib_path, macroblock)
+                    settings_data = self.meta_manager.get_table_latex(lib_path, macroblock)
 
                     if settings_data:
                         latex_new = self._render_latex_settings_block(settings_data)
@@ -428,3 +412,33 @@ class Manual:
         Logger.info(path_to)
         start_abbr(path_to) 
         return 0
+
+
+
+
+
+
+
+
+
+
+    def _render_latex_settings_blockOLD(self, settings_data, header):
+        table = []
+        if header is not None and header != "":
+            head_latex = '\multicolumn{5}{|c|}{ ' + header + ' } \\\\ \hline \n'
+            table.append(head_latex)
+        for row in settings_data:
+            str_ = '\centering '
+            str_ += row[0].replace('_', r'\_')
+            str_ += ' & \centering '
+            str_ += row[1].replace('-', r'--').replace('_', r'\_')
+            str_ += ' & \centering '
+            str_ += row[2].replace('\n', r'\\')
+            str_ += ' & \centering '
+            str_ += row[3].replace('-', r'--').replace('%', r'\%')
+            str_ += ' & \centering \\arraybackslash '
+            str_ += row[4].replace('-', r'--')
+            str_ += ' \\\\\n'  # Закрываем строку таблицы и переносим строку
+            table.append(str_)  # Добавляем строку таблицы
+            table.append('\\hline\n')  # Добавляем \hline отдельным элементом
+        return table

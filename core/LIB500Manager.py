@@ -2,66 +2,125 @@ import json
 from pathlib import Path
 from collections import defaultdict
 
-#path = Path(r'\\uni-eng.ru\unit\Ivanovo\Документация ЮНИТ М300\Разработка\Схемы ФБ ЮНИТ-М300\Проект\БД500\ФСУ\Э2 03.01 (КСЗ+АУВ)_v3.JSON')
-path = Path(r'\\uni-eng.ru\unit\Ivanovo\Документация ЮНИТ М300\Разработка\Схемы ФБ ЮНИТ-М300\Проект\БД500\0.8.0.0\03.01 ЛВ.JSON')
 
+class LIB500Manager:
 
-def get_table_latex(lib_path, macroblock):
-    # Загрузка JSON файла
-    with open(path, 'r', encoding='utf-8') as f:
-        functional_blocks = json.load(f)['Schema']['Info']['Composition']['FunctionalBlocks']
-    
-    # Ищем нужный функциональный блок
-    target_fb = None
-    for fb in functional_blocks:
-        if isinstance(fb, dict) and fb.get('DisplayName') == lib_path:
-            target_fb = fb
-            break
-    
-    if target_fb is None:
-        print(f"Функциональный блок с именем '{lib_path}' не найден.")
-        return []
-    
-    # Определяем, какие режимы нужно обработать
-    modes_to_process = []
-    if macroblock == 'general+-':
-        modes_to_process = ['general', '-']
-    else:
-        modes_to_process = [macroblock]
-    
-    # Общий словарь для всех результатов
-    all_results = []
-    
-    for current_mode in modes_to_process:
-        # Словарь для группировки уставок по макроблокам
-        macro_settings = defaultdict(list)
+    def __init__(self, path_to_json):
+        self.path = path_to_json
+
+    def get_variable_by_name(self, name):
+        """
+        Возвращает полную структуру переменной по её Name включая Description.
         
-        if current_mode != 'general':
-            # Проверяем наличие Info и Composition
-            if 'Info' not in target_fb or 'Composition' not in target_fb['Info']:
-                print("Нет структуры Info/Composition в блоке.")
-                continue
+        Args:
+            name: значение поля Name для поиска
             
-            data = target_fb['Info']['Composition']
+        Returns:
+            словарь с полной структурой переменной или None, если не найдено
+        """
+        try:
+            for block in self.fsu_information:
+                for variable in block.get("Variables", []):
+                    if variable.get("Name") == name:
+                        # Возвращаем полную структуру переменной
+                        return {
+                            "Name": variable.get("Name"),
+                            "Type": variable.get("Type"),
+                            "Comment": variable.get("Comment"),
+                            "InitValue": variable.get("InitValue"),
+                            "Description": variable.get("Description", {})
+                        }
+            return None
+        except (KeyError, AttributeError, TypeError):
+            return None
+
+
+    def get_table_latex(self, lib_path, macroblock):
+
+        # Загрузка JSON файла
+        with open(self.path+'/meta.json', 'r', encoding='utf-8') as f:
+            functional_blocks = json.load(f)['Schema']['Info']['Composition']['FunctionalBlocks']
+
+        # Загрузка вспомогательного файла, где находятится полное описание
+        with open(self.path+'/fsu_information.json', 'r', encoding='utf-8') as f:
+            self.fsu_information = json.load(f)['FunctionalBlocksInformation']
+
+
+
+        # Ищем нужный функциональный блок
+        target_fb = None
+        for fb in functional_blocks:
+            if isinstance(fb, dict) and fb.get('DisplayName') == lib_path:
+                target_fb = fb
+                break
+        
+        if target_fb is None:
+            print(f"Функциональный блок с именем '{lib_path}' не найден.")
+            return []
+        
+        # Определяем, какие режимы нужно обработать
+        modes_to_process = []
+        if macroblock == 'general+-':
+            modes_to_process = ['general', '-']
+        else:
+            modes_to_process = [macroblock]
+        
+        # Общий словарь для всех результатов
+        all_results = []
+        
+        for current_mode in modes_to_process:
+            # Словарь для группировки уставок по макроблокам
+            macro_settings = defaultdict(list)
             
-            # Проход по макроблокам
-            macro_blocks = data.get("MacroBlocks", [])
-            if not macro_blocks:
-                print("Нет макроблоков в файле.")
-                continue
-            
-            for macro in macro_blocks:
-                macro_name = macro.get("DisplayName", "Безымянный")
-                
-                # Если macroblock задан как конкретное имя — пропускаем все, кроме него
-                if current_mode != "-" and macro_name != current_mode:
+            if current_mode != 'general':
+                # Проверяем наличие Info и Composition
+                if 'Info' not in target_fb or 'Composition' not in target_fb['Info']:
+                    print("Нет структуры Info/Composition в блоке.")
                     continue
                 
-                # Уставки
-                for setting in macro.get("Settings", []):
+                data = target_fb['Info']['Composition']
+                
+                # Проход по макроблокам
+                macro_blocks = data.get("MacroBlocks", [])
+                if not macro_blocks:
+                    print("Нет макроблоков в файле.")
+                    continue
+                
+                for macro in macro_blocks:
+                    macro_name = macro.get("DisplayName", "Безымянный")
+                    
+                    # Если macroblock задан как конкретное имя — пропускаем все, кроме него
+                    if current_mode != "-" and macro_name != current_mode:
+                        continue
+                    
+                    # Уставки
+                    for setting in macro.get("Settings", []):
+                        setting_data = setting.get("Setting", {}).get("OriginData")
+                        if setting_data and not setting_data.get("IsConstant", True):
+                            # Формируем уставку
+                            setting_info = {
+                                "Name": setting_data.get("Name", "Безымянная уставка").replace('_', ''),
+                                "Value": setting_data.get("Value"),
+                                "Unit": setting_data.get("Unit"),
+                                "Min": setting_data.get("Min"),
+                                "Max": setting_data.get("Max"),
+                                "Default": setting_data.get("Default"),
+                                "Step": setting_data.get("Step"),
+                                "Description": setting_data.get("Description"),
+                                "IsConstant": setting_data.get("IsConstant"),
+                                "DataType": setting_data.get("DataType"),
+                                "PredefinedValues": get_PredefinedValues(setting_data.get("LogicValue")),
+                                "Id": setting_data.get("Id")
+                            }
+                            macro_settings[macro_name].append(setting_info)
+            else:
+                # Режим 'general' - берем уставки из корневого блока
+                macro_name = lib_path
+                
+                # Уставки из корневого блока
+                for setting in target_fb.get("Settings", []):
                     setting_data = setting.get("Setting", {}).get("OriginData")
                     if setting_data and not setting_data.get("IsConstant", True):
-                        # Формируем уставку
                         setting_info = {
                             "Name": setting_data.get("Name", "Безымянная уставка").replace('_', ''),
                             "Value": setting_data.get("Value"),
@@ -77,40 +136,17 @@ def get_table_latex(lib_path, macroblock):
                             "Id": setting_data.get("Id")
                         }
                         macro_settings[macro_name].append(setting_info)
-        else:
-            # Режим 'general' - берем уставки из корневого блока
-            macro_name = lib_path
             
-            # Уставки из корневого блока
-            for setting in target_fb.get("Settings", []):
-                setting_data = setting.get("Setting", {}).get("OriginData")
-                if setting_data and not setting_data.get("IsConstant", True):
-                    setting_info = {
-                        "Name": setting_data.get("Name", "Безымянная уставка").replace('_', ''),
-                        "Value": setting_data.get("Value"),
-                        "Unit": setting_data.get("Unit"),
-                        "Min": setting_data.get("Min"),
-                        "Max": setting_data.get("Max"),
-                        "Default": setting_data.get("Default"),
-                        "Step": setting_data.get("Step"),
-                        "Description": setting_data.get("Description"),
-                        "IsConstant": setting_data.get("IsConstant"),
-                        "DataType": setting_data.get("DataType"),
-                        "PredefinedValues": get_PredefinedValues(setting_data.get("LogicValue")),
-                        "Id": setting_data.get("Id")
-                    }
-                    macro_settings[macro_name].append(setting_info)
+            # Формируем результат для текущего режима
+            for macro_name, settings_list in macro_settings.items():
+                if macroblock not in ("-", "general+-"):
+                    # Заменяем имя макроблока на "-", если запрошен конкретный
+                    all_results.append({"MacroBlock": "-", "Settings": settings_list})
+                else:
+                    # Иначе оставляем настоящее имя
+                    all_results.append({"MacroBlock": macro_name, "Settings": settings_list})
         
-        # Формируем результат для текущего режима
-        for macro_name, settings_list in macro_settings.items():
-            if macroblock not in ("-", "general+-"):
-                # Заменяем имя макроблока на "-", если запрошен конкретный
-                all_results.append({"MacroBlock": "-", "Settings": settings_list})
-            else:
-                # Иначе оставляем настоящее имя
-                all_results.append({"MacroBlock": macro_name, "Settings": settings_list})
-    
-    return all_results
+        return all_results
 
 def get_table_signals_FB(version, func_type, lib_path):
     full_path = path / version / lib_path

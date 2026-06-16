@@ -111,7 +111,7 @@ class Application:
 
         Logger.set_container("log_content", "log_window")
         
-        dpg.create_viewport(title="Omni-500 v0.0.1 05.12.25", width=1215, height=450)
+        dpg.create_viewport(title="Omni-500 v0.0.1 16.06.26 FOR TESTING!", width=1215, height=450)
         dpg.setup_dearpygui()
 
     def renew_abbrs_ru(self):
@@ -141,13 +141,24 @@ class Application:
             setting_blanc.get_blanc(device=self.device)
             #Logger.info('Бланк уставок в docx создан')
 
+################################################################################################
+
+
+
+
     def renew_setting_tables_re(self):
-        if self.device is None:
-            Logger.error('Устройство не инициализировано!')
-        else:
-            manual = Manual(device_data=self.device_data)
-            manual.renew_setting_tables_re()
-            Logger.info('Таблицы с уставками в РЭ обновлены')
+        if self.device_data is None:
+            self.init_device_data()
+        manual = Manual(device_data=self.device_data)
+        manual.renew_setting_tables_re()
+        Logger.info('Таблицы с уставками в РЭ обновлены')
+
+
+
+#################################################################################################
+
+
+
 
     def renew_sum_table_latex(self):
         if self.device is None:
@@ -184,6 +195,10 @@ class Application:
 
     def start_device_task(self):
         """Запуск задачи устройства"""
+        self.init_device_data()
+        self.create_device()
+
+    def init_device_data(self):
 
         selected_text = dpg.get_value(self.device_combo)
 
@@ -198,23 +213,25 @@ class Application:
         }
 
         # Находим устройство по отображаемому тексту
-        device = display_to_device_map.get(selected_text)
-        if device is None:
+        self.device_displayed = display_to_device_map.get(selected_text)
+        if self.device_displayed is None:
             Logger.error("Выбранное устройство не найдено в конфигурации")
             return
 
-        Logger.info(f"Выбрано устройство: {device['name']} v{device['version']}")
+        Logger.info(f"Выбрано устройство: {self.device_displayed['name']} v{self.device_displayed['version']}")
 
-        try:
-            # Получаем данные устройства
-            self.device_data = self.device_data_manager.get_device_by_name_and_version(
-                name=device['name'], 
-                version=device['version']
-            )
-            
-            if not self.device_data:
-                Logger.error(f"Не удалось получить данные для устройства {device['name']} v{device['version']}")
-                return False
+        # Получаем данные устройства
+        self.device_data = self.device_data_manager.get_device_by_name_and_version(
+            name=self.device_displayed['name'], 
+            version=self.device_displayed['version']
+        )
+        
+        if not self.device_data:
+            Logger.error(f"Не удалось получить данные для устройства {self.device_displayed['name']} v{self.device_displayed['version']}")
+            return False
+
+
+    def create_device(self):
 
             # Создаем устройство
             order_code = self.device_data["order_code"]
@@ -238,15 +255,8 @@ class Application:
                     Logger.error("Устройство создано, но не инициализировано корректно")
                     return False
             
-            Logger.info(f"Устройство: {device['name']} v{device['version']} успешно инициализировано")
+            Logger.info(f"Устройство: {self.device_displayed['name']} v{self.device_displayed['version']} успешно инициализировано")
             return True
-
-        except KeyError as e:
-            Logger.error(f"Отсутствует обязательное поле в данных устройства: {e}")
-            return False
-        except Exception as e:
-            Logger.error(f"Ошибка при создании устройства: {str(e)}")
-            return False
 
 
     def run(self):
