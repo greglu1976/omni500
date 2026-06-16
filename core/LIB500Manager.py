@@ -2,7 +2,9 @@ import json
 from pathlib import Path
 from collections import defaultdict
 
-path = Path(r'\\uni-eng.ru\unit\Ivanovo\Документация ЮНИТ М300\Разработка\Схемы ФБ ЮНИТ-М300\Проект\БД500\ФСУ\Э2 03.01 (КСЗ+АУВ)_v3.JSON')
+#path = Path(r'\\uni-eng.ru\unit\Ivanovo\Документация ЮНИТ М300\Разработка\Схемы ФБ ЮНИТ-М300\Проект\БД500\ФСУ\Э2 03.01 (КСЗ+АУВ)_v3.JSON')
+path = Path(r'\\uni-eng.ru\unit\Ivanovo\Документация ЮНИТ М300\Разработка\Схемы ФБ ЮНИТ-М300\Проект\БД500\0.8.0.0\03.01 ЛВ.JSON')
+
 
 def get_table_latex(lib_path, macroblock):
     # Загрузка JSON файла

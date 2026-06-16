@@ -297,6 +297,11 @@ class FBData:
             return '-'
         if step is None:
             return str(value)
+        
+        # Fix: Convert step to float first if it's an integer
+        if isinstance(step, int):
+            step = float(step)        
+
         if step.is_integer():
             return str(int(value))
         decimals = len(str(step).split('.')[1])
