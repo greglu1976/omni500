@@ -8,30 +8,33 @@ class LIB500Manager:
     def __init__(self, path_to_json):
         self.path = path_to_json
 
-    def get_variable_by_name(self, name):
+    def get_fsu_info_data(self, name, parameter):
         """
-        Возвращает полную структуру переменной по её Name включая Description.
+        Get FSU information data for a specific macroblock and parameter.
         
         Args:
-            name: значение поля Name для поиска
+            name: The name of the macroblock to search for
+            parameter: The parameter (Description) to look up
             
         Returns:
-            словарь с полной структурой переменной или None, если не найдено
+            The matching variable information or None if not found
         """
         try:
+            # Search through the list of functional blocks
             for block in self.fsu_information:
-                for variable in block.get("Variables", []):
-                    if variable.get("Name") == name:
-                        # Возвращаем полную структуру переменной
-                        return {
-                            "Name": variable.get("Name"),
-                            "Type": variable.get("Type"),
-                            "Comment": variable.get("Comment"),
-                            "InitValue": variable.get("InitValue"),
-                            "Description": variable.get("Description", {})
-                        }
+                if block.get("Name") == name:
+                    # Found the matching block, now search for the variable
+                    for variable in block.get("Variables", []):
+                        var = variable.get("Description")
+                        if var.get("Description") == parameter:
+                            #print(f"Variable with Description '{parameter}' FOUND in block '{name}'")
+                            return var
+                    #print(f"Variable with Description '{parameter}' not found in block '{name}'")
+                    return None
+            print(f"Block with Name '{name}' not found")
             return None
-        except (KeyError, AttributeError, TypeError):
+        except (KeyError, AttributeError, TypeError) as e:
+            print(f"Error in get_fsu_info_data: {e}")
             return None
 
 
@@ -42,10 +45,8 @@ class LIB500Manager:
             functional_blocks = json.load(f)['Schema']['Info']['Composition']['FunctionalBlocks']
 
         # Загрузка вспомогательного файла, где находятится полное описание
-        with open(self.path+'/fsu_information.json', 'r', encoding='utf-8') as f:
+        with open(self.path+'/fsu-information.json', 'r', encoding='utf-8') as f:
             self.fsu_information = json.load(f)['FunctionalBlocksInformation']
-
-
 
         # Ищем нужный функциональный блок
         target_fb = None
@@ -88,6 +89,7 @@ class LIB500Manager:
                 
                 for macro in macro_blocks:
                     macro_name = macro.get("DisplayName", "Безымянный")
+                    macro_name_displayed = macro.get("Name")
                     
                     # Если macroblock задан как конкретное имя — пропускаем все, кроме него
                     if current_mode != "-" and macro_name != current_mode:
@@ -96,17 +98,30 @@ class LIB500Manager:
                     # Уставки
                     for setting in macro.get("Settings", []):
                         setting_data = setting.get("Setting", {}).get("OriginData")
+
+                        # ИСПРАВЛЕНИЕ: Извлекаем строку Description из словаря
+                        description = setting_data.get("Description")
+                        if isinstance(description, dict):
+                            description = description.get("Description", "")
+
+                        fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
+
+                        name = r"\textcolor{red}{FullDescription НЕ НАЙДЕН!}"
+                        if fsu_info:
+                            name = fsu_info.get("FullDescription")
+
+
                         if setting_data and not setting_data.get("IsConstant", True):
                             # Формируем уставку
                             setting_info = {
-                                "Name": setting_data.get("Name", "Безымянная уставка").replace('_', ''),
+                                "Name": name,
                                 "Value": setting_data.get("Value"),
                                 "Unit": setting_data.get("Unit"),
                                 "Min": setting_data.get("Min"),
                                 "Max": setting_data.get("Max"),
-                                "Default": setting_data.get("Default"),
+                                "Default": setting_data.get("LogicValue")["Origin"],
                                 "Step": setting_data.get("Step"),
-                                "Description": setting_data.get("Description"),
+                                "Description": description,
                                 "IsConstant": setting_data.get("IsConstant"),
                                 "DataType": setting_data.get("DataType"),
                                 "PredefinedValues": get_PredefinedValues(setting_data.get("LogicValue")),
@@ -116,20 +131,34 @@ class LIB500Manager:
             else:
                 # Режим 'general' - берем уставки из корневого блока
                 macro_name = lib_path
-                
+                macro_name_displayed = target_fb.get("Name", lib_path) 
+
                 # Уставки из корневого блока
                 for setting in target_fb.get("Settings", []):
                     setting_data = setting.get("Setting", {}).get("OriginData")
+
+
+                description = setting_data.get("Description")
+                if isinstance(description, dict):
+                    description = description.get("Description", "")
+
+
+                    fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
+
+                    name = r"\textcolor{red}{FullDescription НЕ НАЙДЕН!}"
+                    if fsu_info:
+                        name = fsu_info.get("FullDescription")
+
                     if setting_data and not setting_data.get("IsConstant", True):
                         setting_info = {
-                            "Name": setting_data.get("Name", "Безымянная уставка").replace('_', ''),
+                            "Name": name,
                             "Value": setting_data.get("Value"),
                             "Unit": setting_data.get("Unit"),
                             "Min": setting_data.get("Min"),
                             "Max": setting_data.get("Max"),
-                            "Default": setting_data.get("Default"),
+                            "Default": setting_data.get("LogicValue")["Origin"],
                             "Step": setting_data.get("Step"),
-                            "Description": setting_data.get("Description"),
+                            "Description": description,
                             "IsConstant": setting_data.get("IsConstant"),
                             "DataType": setting_data.get("DataType"),
                             "PredefinedValues": get_PredefinedValues(setting_data.get("LogicValue")),
@@ -147,6 +176,16 @@ class LIB500Manager:
                     all_results.append({"MacroBlock": macro_name, "Settings": settings_list})
         
         return all_results
+
+
+
+
+
+
+
+
+########################## НЕ ДОРАБОТАННЫЕ, НЕ ПРОВЕРЕННЫЕ МЕТОДЫ №№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№
+
 
 def get_table_signals_FB(version, func_type, lib_path):
     full_path = path / version / lib_path
@@ -292,6 +331,7 @@ def get_PredefinedValues(data, field='DisplayText', separator=' \\\ ', sort_by=N
         items = sorted(items, key=lambda x: x[sort_by])
     values = [item[field] for item in items if field in item]
     return separator.join(values)
+
 
 
 

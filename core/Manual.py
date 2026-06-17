@@ -86,9 +86,9 @@ class Manual:
                 table.append(head_latex)            
             for setting in data["Settings"]:
                 str_ = '\\raggedright '
-                str_ += str(setting["Description"])
-                str_ += ' & \centering '
                 str_ += str(setting["Name"])
+                str_ += ' & \centering '
+                str_ += str(setting["Description"])
                 str_ += ' & \centering '
                 if setting["PredefinedValues"]=='':
                     ############# Форматирование Min и Max к требуемому виду в РЭ ####################
@@ -198,7 +198,7 @@ class Manual:
                     if settings_data:
                         latex_new = self._render_latex_settings_block(settings_data)
                     else:
-                        Logger.error(f"Не найдено уставок для ФБ: {lib_path}.")
+                        Logger.error(f"Не найдено уставок для ФБ: {lib_path}. МБ: {macroblock}")
                         latex_new = old_block
 
                     # Проверяем результат get_table_settings_latex
