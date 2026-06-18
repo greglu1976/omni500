@@ -146,6 +146,11 @@ class Manual:
 
         self._get_all_paths_from_general_tex()
 
+        #self.paths.append("\\\\uni-eng.ru\\unit\\Ivanovo\\Документация ЮНИТ М300\\Разработка\\Схемы ФБ ЮНИТ-М300\\Проект\\РЭ500\\30. РЭ ЮНИТ-М500-ЛВ Уст\\Приложение. Уставки\\settings.tex")
+
+        self.paths = ("\\\\uni-eng.ru\\unit\\Ivanovo\\Документация ЮНИТ М300\\Разработка\\Схемы ФБ ЮНИТ-М300\\Проект\\РЭ500\\30. РЭ ЮНИТ-М500-ЛВ Уст\\Приложение. Уставки\\settings.tex", )
+
+
         for path in self.paths:
             if not os.path.exists(path):
                 Logger.warning(f"Файл не найден: {path}")

@@ -138,33 +138,33 @@ class LIB500Manager:
                     setting_data = setting.get("Setting", {}).get("OriginData")
 
 
-                description = setting_data.get("Description")
-                if isinstance(description, dict):
-                    description = description.get("Description", "")
+                    description = setting_data.get("Description")
+                    if isinstance(description, dict):
+                        description = description.get("Description", "")
 
 
-                    fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
+                        fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
 
-                    name = r"\textcolor{red}{FullDescription НЕ НАЙДЕН!}"
-                    if fsu_info:
-                        name = fsu_info.get("FullDescription")
+                        name = r"\textcolor{red}{FullDescription НЕ НАЙДЕН!}"
+                        if fsu_info:
+                            name = fsu_info.get("FullDescription")
 
-                    if setting_data and not setting_data.get("IsConstant", True):
-                        setting_info = {
-                            "Name": name,
-                            "Value": setting_data.get("Value"),
-                            "Unit": setting_data.get("Unit"),
-                            "Min": setting_data.get("Min"),
-                            "Max": setting_data.get("Max"),
-                            "Default": setting_data.get("LogicValue")["Origin"],
-                            "Step": setting_data.get("Step"),
-                            "Description": description,
-                            "IsConstant": setting_data.get("IsConstant"),
-                            "DataType": setting_data.get("DataType"),
-                            "PredefinedValues": get_PredefinedValues(setting_data.get("LogicValue")),
-                            "Id": setting_data.get("Id")
-                        }
-                        macro_settings[macro_name].append(setting_info)
+                        if setting_data and not setting_data.get("IsConstant", True):
+                            setting_info = {
+                                "Name": name,
+                                "Value": setting_data.get("Value"),
+                                "Unit": setting_data.get("Unit"),
+                                "Min": setting_data.get("Min"),
+                                "Max": setting_data.get("Max"),
+                                "Default": setting_data.get("LogicValue")["Origin"],
+                                "Step": setting_data.get("Step"),
+                                "Description": description,
+                                "IsConstant": setting_data.get("IsConstant"),
+                                "DataType": setting_data.get("DataType"),
+                                "PredefinedValues": get_PredefinedValues(setting_data.get("LogicValue")),
+                                "Id": setting_data.get("Id")
+                            }
+                            macro_settings[macro_name].append(setting_info)
             
             # Формируем результат для текущего режима
             for macro_name, settings_list in macro_settings.items():
