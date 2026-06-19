@@ -19,23 +19,24 @@ class LIB500Manager:
         Returns:
             The matching variable information or None if not found
         """
-        try:
-            # Search through the list of functional blocks
-            for block in self.fsu_information:
-                if block.get("Name") == name:
-                    # Found the matching block, now search for the variable
-                    for variable in block.get("Variables", []):
-                        var = variable.get("Description")
-                        if var.get("Description") == parameter:
-                            #print(f"Variable with Description '{parameter}' FOUND in block '{name}'")
-                            return var
-                    #print(f"Variable with Description '{parameter}' not found in block '{name}'")
-                    return None
-            print(f"Block with Name '{name}' not found")
-            return None
-        except (KeyError, AttributeError, TypeError) as e:
-            print(f"Error in get_fsu_info_data: {e}")
-            return None
+
+        # Search through the list of functional blocks
+        for block in self.fsu_information:
+            if block.get("Name") == name:
+                # Found the matching block, now search for the variable
+                for variable in block.get("Variables", []):
+                    var = variable.get("Description")
+                    if var.get("Description") == parameter:
+                        #print(f"Variable with Description '{parameter}' FOUND in block '{name}'")
+                        #print("FOUND", var)
+                        return var
+                #print(f"Variable with Description '{parameter}' not found in block '{name}'")
+
+                #print("NOT FOUND")
+                return None
+        print(f"Block with Name '{name}' not found")
+        return None
+
 
 
     def get_table_latex(self, lib_path, macroblock):
@@ -97,14 +98,29 @@ class LIB500Manager:
                     
                     # Уставки
                     for setting in macro.get("Settings", []):
-                        setting_data = setting.get("Setting", {}).get("OriginData")
-
+                        setting_dict = setting.get("Setting", {})
+                        
+                        # Берем OriginData
+                        setting_data = setting_dict.get("OriginData")
+                        
+                        # Проверяем описание в OriginData
+                        desc_obj = setting_data.get("Description") if setting_data else None
+                        desc_value = desc_obj.get("Description") if isinstance(desc_obj, dict) else desc_obj
+                        
+                        # Если описание пустое или отсутствует
+                        if not desc_value or desc_value.strip() == "":
+                            # Берем Data
+                            setting_data = setting_dict.get("Data")
+                        
                         # ИСПРАВЛЕНИЕ: Извлекаем строку Description из словаря
                         description = setting_data.get("Description")
                         if isinstance(description, dict):
                             description = description.get("Description", "")
+                        elif not isinstance(description, str):
+                            description = ""
 
                         fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
+
 
                         name = r"\textcolor{red}{FullDescription НЕ НАЙДЕН!}"
                         if fsu_info:
@@ -135,36 +151,50 @@ class LIB500Manager:
 
                 # Уставки из корневого блока
                 for setting in target_fb.get("Settings", []):
-                    setting_data = setting.get("Setting", {}).get("OriginData")
-
-
+                    setting_dict = setting.get("Setting", {})
+                    
+                    # Берем OriginData
+                    setting_data = setting_dict.get("OriginData")
+                    
+                    # Проверяем описание в OriginData
+                    desc_obj = setting_data.get("Description") if setting_data else None
+                    desc_value = desc_obj.get("Description") if isinstance(desc_obj, dict) else desc_obj
+                    
+                    # Если описание пустое или отсутствует
+                    if not desc_value or desc_value.strip() == "":
+                        # Берем Data
+                        setting_data = setting_dict.get("Data")
+                    
+                    # ИСПРАВЛЕНИЕ: Извлекаем строку Description из словаря
                     description = setting_data.get("Description")
                     if isinstance(description, dict):
                         description = description.get("Description", "")
+                    elif not isinstance(description, str):
+                        description = ""
 
 
-                        fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
+                    fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
 
-                        name = r"\textcolor{red}{FullDescription НЕ НАЙДЕН!}"
-                        if fsu_info:
-                            name = fsu_info.get("FullDescription")
+                    name = r"\textcolor{red}{FullDescription НЕ НАЙДЕН!}"
+                    if fsu_info:
+                        name = fsu_info.get("FullDescription")
 
-                        if setting_data and not setting_data.get("IsConstant", True):
-                            setting_info = {
-                                "Name": name,
-                                "Value": setting_data.get("Value"),
-                                "Unit": setting_data.get("Unit"),
-                                "Min": setting_data.get("Min"),
-                                "Max": setting_data.get("Max"),
-                                "Default": setting_data.get("LogicValue")["Origin"],
-                                "Step": setting_data.get("Step"),
-                                "Description": description,
-                                "IsConstant": setting_data.get("IsConstant"),
-                                "DataType": setting_data.get("DataType"),
-                                "PredefinedValues": get_PredefinedValues(setting_data.get("LogicValue")),
-                                "Id": setting_data.get("Id")
-                            }
-                            macro_settings[macro_name].append(setting_info)
+                    if setting_data and not setting_data.get("IsConstant", True):
+                        setting_info = {
+                            "Name": name,
+                            "Value": setting_data.get("Value"),
+                            "Unit": setting_data.get("Unit"),
+                            "Min": setting_data.get("Min"),
+                            "Max": setting_data.get("Max"),
+                            "Default": setting_data.get("LogicValue")["Origin"],
+                            "Step": setting_data.get("Step"),
+                            "Description": description,
+                            "IsConstant": setting_data.get("IsConstant"),
+                            "DataType": setting_data.get("DataType"),
+                            "PredefinedValues": get_PredefinedValues(setting_data.get("LogicValue")),
+                            "Id": setting_data.get("Id")
+                        }
+                        macro_settings[macro_name].append(setting_info)
             
             # Формируем результат для текущего режима
             for macro_name, settings_list in macro_settings.items():
