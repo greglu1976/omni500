@@ -9,6 +9,7 @@ class LIB500Manager:
         self.path = path_to_json
 
     def get_fsu_info_data(self, name, parameter):
+
         """
         Get FSU information data for a specific macroblock and parameter.
         
@@ -121,7 +122,6 @@ class LIB500Manager:
 
                         fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
 
-
                         name = r"\textcolor{red}{FullDescription НЕ НАЙДЕН!}"
                         if fsu_info:
                             name = fsu_info.get("FullDescription")
@@ -171,7 +171,6 @@ class LIB500Manager:
                         description = description.get("Description", "")
                     elif not isinstance(description, str):
                         description = ""
-
 
                     fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
 

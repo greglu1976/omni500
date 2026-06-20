@@ -20,7 +20,7 @@ intro_strs.append('\\begin{longtable}{>{\\raggedright\\arraybackslash}m{2cm}>{\\
 intro_strs.append('\endfirsthead\endhead\endfoot\endlastfoot'+'\n')
 outro_strs = []
 outro_strs.append('\end{longtable}'+'\n')
-outro_strs.append("{\color{white}\\fontsize{0.1pt}{0.1pt}\selectfont<endABBRS>}") # невидимый тег начала перечня сокращений
+#outro_strs.append("{\color{white}\\fontsize{0.1pt}{0.1pt}\selectfont<endABBRS>}") # невидимый тег начала перечня сокращений
 
 abbrs = {
     'ОСФ':'Орган сравнения фаз',
@@ -148,6 +148,7 @@ def parse_tex(new_word_list, data):
             last_element = tex_list[last_element_index]
             updated_last_element = last_element.replace('; \\\\\n', '. \\\\\n')
             tex_list[last_element_index] = updated_last_element
+            tex_list.append("{\color{white}\\fontsize{0.1pt}{0.1pt}\selectfont<endABBRS>}"+'\n')            
     return tex_list 
 
 def parse_tex_new(new_word_list, dict):

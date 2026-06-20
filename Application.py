@@ -111,7 +111,7 @@ class Application:
 
         Logger.set_container("log_content", "log_window")
         
-        dpg.create_viewport(title="Omni-500 v0.0.1 16.06.26 FOR TESTING!", width=1215, height=450)
+        dpg.create_viewport(title="Omni-500 v0.0.2 20.06.26 FOR TESTING!", width=1215, height=450)
         dpg.setup_dearpygui()
 
     def renew_abbrs_ru(self):
@@ -124,13 +124,18 @@ class Application:
             else:
                 Logger.error('При обновлении перечня сокращений РУ возникли ошибки')               
 
+
+
+##########################################################################################################
     def renew_abbrs(self):
-        if self.device is None:
-            Logger.error('Устройство не инициализировано!')
-        else:
-            manual = Manual(device_data=self.device_data)
-            manual.renew_abbrs()
-            Logger.info('Перечень сокращений в РЭ обновлен')
+        if self.device_data is None:
+            self.init_device_data()        
+        manual = Manual(device_data=self.device_data)
+        manual.renew_abbrs()
+        Logger.info('Перечень сокращений в РЭ обновлен')
+############################################################################################################
+
+
 
     def generate_setting_blanc_docx(self):
         if self.device is None:
@@ -141,20 +146,14 @@ class Application:
             setting_blanc.get_blanc(device=self.device)
             #Logger.info('Бланк уставок в docx создан')
 
+
 ################################################################################################
-
-
-
-
     def renew_setting_tables_re(self):
         if self.device_data is None:
             self.init_device_data()
         manual = Manual(device_data=self.device_data)
         manual.renew_setting_tables_re()
-        Logger.info('Таблицы с уставками в РЭ обновлены')
-
-
-
+        Logger.info('Таблицы с уставками в РЭ обновлены') # TODO добавить контроль обновления, если нет обновлений то другое сообщение
 #################################################################################################
 
 
