@@ -202,6 +202,67 @@ class SettingBlanc:
         
         return note_str
 
+
+
+
+
+
+
+    def prepare_structure(self):
+        """Подготовка полной структуры данных для LaTeX рендера"""
+        
+        # Создаем словарь для быстрого доступа к блокам по ID
+        blocks_by_id = {info['Id']: info for info in self.fsu_information}
+        
+        # Находим все корневые блоки (ParentId == None)
+        root_blocks = [info for info in self.fsu_information if info['ParentId'] is None]
+        
+        # Сортируем корневые блоки по имени
+        root_blocks.sort(key=lambda x: x['Name'])
+        
+        latex_structure = []
+        
+        for root in root_blocks:
+            # Информация о корневом блоке
+            root_entry = {
+                'type': 'root',
+                'id': root['Id'],
+                'name': root['Name'],
+                'display_name': root['DisplayName'],
+                'type_name': root['TypeName'],
+                'variables': root.get('Variables', []),
+                'children': [],
+                'level': 0,
+                'is_root': True
+            }
+            
+            # Находим все дочерние блоки
+            children = [info for info in self.fsu_information 
+                    if info.get('ParentId') == root['Id']]
+            children.sort(key=lambda x: x['Name'])
+            
+            for child in children:
+                child_entry = {
+                    'type': 'child',
+                    'id': child['Id'],
+                    'name': child['Name'],
+                    'display_name': child['DisplayName'],
+                    'type_name': child['TypeName'],
+                    'variables': child.get('Variables', []),
+                    'parent_id': child['ParentId'],
+                    'parent_name': root['Name'],
+                    'level': 1,
+                    'is_root': False
+                }
+                root_entry['children'].append(child_entry)
+            
+            latex_structure.append(root_entry)
+        
+        return latex_structure
+
+
+
+
     def get_all_settings(self):
         """Собирает структуру уставок из заказа"""
 
@@ -223,6 +284,15 @@ class SettingBlanc:
         self.base_structure = base_structure
         Logger.info(f"Загружено {len(base_structure)} блоков уставок")
         return base_structure
+
+
+
+
+
+
+
+
+
 
     def create_template(self):
         """
@@ -268,9 +338,16 @@ class SettingBlanc:
         doc = Document('temp.docx')
 
         # Получаем структуру уставок
-        self.get_all_settings()
+        #self.get_all_settings()
+
+
+        struct = self.prepare_structure()
         # Генерируем раздел уставок (новый метод)
         Logger.info("Создаем раздел Уставки РЗиА...")
+
+
+
+        
         self._create_section_settings_core4(doc)
         Logger.info("Создаем раздел Матрица входов и выходных реле...")
         self._create_section_inouts_core4(doc)

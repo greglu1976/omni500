@@ -316,15 +316,7 @@ class Manual:
             Logger.info(f"Изменений в файле нет: {path_to_appA_tex}")
 
 
-
-
-
-
-
-
-
-
-    def prepare_latex_structure(self):
+    def prepare_structure(self):
         """Подготовка полной структуры данных для LaTeX рендера"""
         
         # Создаем словарь для быстрого доступа к блокам по ID
@@ -429,7 +421,7 @@ class Manual:
             #table.extend(_generate_section(temp_keys, "Виртуальные ключи"))
 
         # Список сигналов ФСУ
-        g = self.prepare_latex_structure()
+        g = self.prepare_structure()
 
         table.append(f'\\multicolumn{{9}}{{c}}{{\\textbf{{{"Общие сигналы функциональной логики"}}}}} \\\\\n\\hline\n')
         for info in g:
