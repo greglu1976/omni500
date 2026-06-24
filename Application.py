@@ -160,13 +160,12 @@ class Application:
 
 
     def renew_sum_table_latex(self):
-        if self.device is None:
-            Logger.error('Устройство не инициализировано!')
-        else:
-            manual = Manual(device_data=self.device_data)
-            manual.renew_sum_table_latex(self.device)
-            #self.re_.renew_sum_table_latex(table_type=self.sum_table_type)
-            #Logger.info('Суммарная таблица сигналов приложения в РЭ обновлена')
+        if self.device_data is None:
+            self.init_device_data()
+
+        manual = Manual(device_data=self.device_data)
+        manual.renew_sum_table_latex()
+        Logger.info('Суммарная таблица сигналов приложения в РЭ обновлена')
 
     def add_to_sqlite(self):
         Logger.info('Запуск задачи обновления БД')

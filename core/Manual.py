@@ -2,6 +2,7 @@
 
 import os
 import re
+import json
 from pathlib import Path
 
 from utils.abbrs import start_abbr
@@ -251,7 +252,7 @@ class Manual:
         content2 = ' '.join(block2).replace('\n', ' ').replace('  ', ' ')
         return content1 == content2
 
-    def renew_sum_table_latex(self, device):
+    def renew_sum_table_latex(self):
         
         path_to_appA_tex = Path(self.device_data["path_to_latex_desc"]) / "Приложение А. Сигналы" / "_latex" / "app1.tex"
         start_tag = '%===t2\n'
@@ -282,7 +283,7 @@ class Manual:
                     i += 1
 
                 # Генерируем новое содержимое
-                latex_new = self._generate_summ_table_latex(device=device) # old_block #self._fsu.get_summ_table_latex()
+                latex_new = self._generate_summ_table_latex() # old_block #self._fsu.get_summ_table_latex()
 
                 # Проверяем результат
                 if not latex_new:
@@ -315,10 +316,71 @@ class Manual:
             Logger.info(f"Изменений в файле нет: {path_to_appA_tex}")
 
 
+
+
+
+
+
+
+
+
+    def prepare_latex_structure(self):
+        """Подготовка полной структуры данных для LaTeX рендера"""
+        
+        # Создаем словарь для быстрого доступа к блокам по ID
+        blocks_by_id = {info['Id']: info for info in self.fsu_information}
+        
+        # Находим все корневые блоки (ParentId == None)
+        root_blocks = [info for info in self.fsu_information if info['ParentId'] is None]
+        
+        # Сортируем корневые блоки по имени
+        root_blocks.sort(key=lambda x: x['Name'])
+        
+        latex_structure = []
+        
+        for root in root_blocks:
+            # Информация о корневом блоке
+            root_entry = {
+                'type': 'root',
+                'id': root['Id'],
+                'name': root['Name'],
+                'display_name': root['DisplayName'],
+                'type_name': root['TypeName'],
+                'variables': root.get('Variables', []),
+                'children': [],
+                'level': 0,
+                'is_root': True
+            }
+            
+            # Находим все дочерние блоки
+            children = [info for info in self.fsu_information 
+                    if info.get('ParentId') == root['Id']]
+            children.sort(key=lambda x: x['Name'])
+            
+            for child in children:
+                child_entry = {
+                    'type': 'child',
+                    'id': child['Id'],
+                    'name': child['Name'],
+                    'display_name': child['DisplayName'],
+                    'type_name': child['TypeName'],
+                    'variables': child.get('Variables', []),
+                    'parent_id': child['ParentId'],
+                    'parent_name': root['Name'],
+                    'level': 1,
+                    'is_root': False
+                }
+                root_entry['children'].append(child_entry)
+            
+            latex_structure.append(root_entry)
+        
+        return latex_structure
+
+
     ###################################################
     ### Генерация суммарной таблицы в формате LATEX ###
     ###################################################
-    def _generate_summ_table_latex(self, device):
+    def _generate_summ_table_latex(self):
         def _generate_row(row):
             row_str = '\\raggedright '
             row_str += row[0].replace('_', r'\_')
@@ -351,56 +413,77 @@ class Manual:
                     section.append(_generate_row(row))
             return section
 
-        table = [] 
-        temp_buttons = device.fsu.get_controls_for_latex()["buttons"]
-        if temp_buttons:
-            table.extend(_generate_section(temp_buttons, "Виртуальные кнопки"))
-        temp_keys = device.fsu.get_controls_for_latex()["keys"]
-        if temp_keys:
-            table.extend(_generate_section(temp_keys, "Виртуальные ключи"))
+
+
+        path_to_json = self.device_data["path_to_json"]
+        # Загрузка вспомогательного файла, где находятится полное описание
+        with open(path_to_json+'/fsu-information.json', 'r', encoding='utf-8') as f:
+            self.fsu_information = json.load(f)['FunctionalBlocksInformation']
+
+
+        table = []
+
+        #temp_buttons = device.fsu.get_controls_for_latex()["buttons"]
+        #if temp_buttons:
+            #table.extend(_generate_section(temp_buttons, "Виртуальные кнопки"))
+        #temp_keys = device.fsu.get_controls_for_latex()["keys"]
+        #if temp_keys:
+            #table.extend(_generate_section(temp_keys, "Виртуальные ключи"))
+
+
 
         # Список сигналов ФСУ
-        temp_common = device.fsu.get_statuses_for_latex()
-        if temp_common:
-            table.append(f'\\multicolumn{{9}}{{c}}{{\\textbf{{{"Общие сигналы функциональной логики"}}}}} \\\\\n\\hline\n')
-            for fb_dict in temp_common:
-                funcs_count = fb_dict["funcs_count"]
-                table.append('\\rowcolor{gray!15}\n')
-                header = f'\\multicolumn{{9}}{{c}}{{{fb_dict["description_fb"]} ({fb_dict["russian_name"]})}} \\\\\n\\hline\n'
-                table.append(header)
-                
-                # Проходим по всем функциям с их статусами
-                for func_group in fb_dict["statuses_by_function"]:
-                    func_name = func_group["function_name"]
-                    func_description = func_group["function_description"]
-                    statuses = func_group["statuses"]
-                    
-                    
-                    # Добавляем подзаголовок функции если нужно
-                    if func_name:
-                        # Не выводим заголовок только если: имя совпадает И функций ровно 1
-                        if not (func_name == fb_dict["russian_name"] and funcs_count == 1):
-                            # Определяем текст заголовка
-                            if func_name == fb_dict["russian_name"]:
-                                header_text = f'Общие сигналы ({func_name})'
-                            else:
-                                header_text = f'{func_description} ({func_name})'
-                            
-                            func_header = f'\\multicolumn{{9}}{{c}}{{{header_text}}} \\\\\n\\hline\n'
-                            table.append(func_header)
+        g = self.prepare_latex_structure()
 
-                    # Генерируем таблицу для статусов этой функции
-                    table.extend(_generate_section(statuses, ""))
+        table.append(f'\\multicolumn{{9}}{{c}}{{\\textbf{{{"Общие сигналы функциональной логики"}}}}} \\\\\n\\hline\n')
+        for info in g:
+            table.append('\\rowcolor{gray!15}\n')
+            header = f'\\multicolumn{{9}}{{c}}{{{info["display_name"]} }} \\\\\n\\hline\n'
+            table.append(header)
+            
+            # Переменные корневого блока
+            if info["variables"]:
+                header2 = f'\\multicolumn{{9}}{{c}}{{ Общие сигналы блока }} \\\\\n\\hline\n'
+                table.append(header2)
+                for var in info["variables"]:
+                    if var["Comment"]=="RTE_OUTPUT":
+                        description = var.get("Description", {})
+                        full_description = description.get("FullDescription", "") if isinstance(description, dict) else ""
+                        desc_text = description.get("Description", "") if isinstance(description, dict) else str(description)                
+                        row = (full_description, desc_text, "-", "-", "-", "-", "-", "-", "-")
+                        row_str = _generate_row(row)
+                        table.append(row_str)
+            
+            # Переменные дочерних блоков
+            if info["children"]:
+                for child in info["children"]:
+                    # Добавляем заголовок дочернего блока
+                    child_header = f'\\multicolumn{{9}}{{c}}{{\\text{{{child["display_name"]}}}}} \\\\\n\\hline\n'
+                    table.append(child_header)
+                    
+                    # Переменные дочернего блока
+                    if child.get("variables"):
+                        for var in child["variables"]:
+                            if var["Comment"]=="RTE_OUTPUT":
+                                description = var.get("Description", {})
+                                full_description = description.get("FullDescription", "") if isinstance(description, dict) else ""
+                                desc_text = description.get("Description", "") if isinstance(description, dict) else str(description)                
+                                row = (full_description, desc_text, "-", "-", "-", "-", "-", "-", "-")
+                                row_str = _generate_row(row)
+                                table.append(row_str)
+
 
         # Список сигналов ЖЕЛЕЗА
-        statuses_list = device.modules.get_statuses_for_latex_sum_table()
-        if statuses_list:
-            table.append(f'\\multicolumn{{9}}{{c}}{{\\textbf{{{"Дискретные сигналы модулей в составе устройства"}}}}} \\\\\n\\hline\n')
-            for module in device.modules.get_statuses_for_latex_sum_table():
-                table.append('\\rowcolor{gray!15}\n')
-                header = f'\\multicolumn{{9}}{{c}}{{{module["module"]}}} \\\\\n\\hline\n'
-                table.append(header)
-                table.extend(_generate_section(module["statuses"]))
+        #statuses_list = device.modules.get_statuses_for_latex_sum_table()
+        #if statuses_list:
+            #table.append(f'\\multicolumn{{9}}{{c}}{{\\textbf{{{"Дискретные сигналы модулей в составе устройства"}}}}} \\\\\n\\hline\n')
+            #for module in device.modules.get_statuses_for_latex_sum_table():
+                #table.append('\\rowcolor{gray!15}\n')
+                #header = f'\\multicolumn{{9}}{{c}}{{{module["module"]}}} \\\\\n\\hline\n'
+                #table.append(header)
+                #table.extend(_generate_section(module["statuses"]))
+
+
         return table
 
     ###################################################
