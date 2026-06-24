@@ -403,7 +403,7 @@ class Manual:
             row_str += ' \\\\ \\hline\n'
             return row_str
 
-        def _generate_section(data, title=''):
+        def _generate_section(data, title=''): # Удалить потом - не используется
             section = []
             if data:
                 #section.append(f'\\multicolumn{{9}}{{c|}}{{{title}}} \\\\\n\\hline\n')
@@ -412,8 +412,6 @@ class Manual:
                 for row in data:
                     section.append(_generate_row(row))
             return section
-
-
 
         path_to_json = self.device_data["path_to_json"]
         # Загрузка вспомогательного файла, где находятится полное описание
@@ -430,8 +428,6 @@ class Manual:
         #if temp_keys:
             #table.extend(_generate_section(temp_keys, "Виртуальные ключи"))
 
-
-
         # Список сигналов ФСУ
         g = self.prepare_latex_structure()
 
@@ -443,35 +439,48 @@ class Manual:
             
             # Переменные корневого блока
             if info["variables"]:
-                header2 = f'\\multicolumn{{9}}{{c}}{{ Общие сигналы блока }} \\\\\n\\hline\n'
-                table.append(header2)
-                for var in info["variables"]:
-                    if var["Comment"]=="RTE_OUTPUT":
-                        description = var.get("Description", {})
-                        full_description = description.get("FullDescription", "") if isinstance(description, dict) else ""
-                        desc_text = description.get("Description", "") if isinstance(description, dict) else str(description)                
-                        row = (full_description, desc_text, "-", "-", "-", "-", "-", "-", "-")
-                        row_str = _generate_row(row)
-                        table.append(row_str)
+                # Сначала проверяем, есть ли сигналы с RTE_OUTPUT
+                has_rte_output = any(var.get("Comment") == "RTE_OUTPUT" for var in info["variables"])
+                
+                if has_rte_output:
+                    header2 = f'\\multicolumn{{9}}{{c}}{{ Общие сигналы блока }} \\\\\n\\hline\n'
+                    table.append(header2)
+                    
+                    for var in info["variables"]:
+                        if var.get("Comment") == "RTE_OUTPUT":
+                            description = var.get("Description", {})
+                            full_description = description.get("FullDescription", "") if isinstance(description, dict) else ""
+                            desc_text = description.get("Description", "") if isinstance(description, dict) else str(description)                
+                            row = (full_description, desc_text, "-", "-", "-", "-", "-", "-", "-")
+                            row_str = _generate_row(row)
+                            table.append(row_str)
             
             # Переменные дочерних блоков
             if info["children"]:
                 for child in info["children"]:
-                    # Добавляем заголовок дочернего блока
-                    child_header = f'\\multicolumn{{9}}{{c}}{{\\text{{{child["display_name"]}}}}} \\\\\n\\hline\n'
-                    table.append(child_header)
-                    
-                    # Переменные дочернего блока
+                    # Проверяем, есть ли сигналы RTE_OUTPUT в дочернем блоке
+                    has_rte_output = False
                     if child.get("variables"):
                         for var in child["variables"]:
-                            if var["Comment"]=="RTE_OUTPUT":
+                            if var.get("Comment") == "RTE_OUTPUT":
+                                has_rte_output = True
+                                break
+                    
+                    # Выводим заголовок только если есть сигналы
+                    if has_rte_output:
+                        # Добавляем заголовок дочернего блока
+                        child_header = f'\\multicolumn{{9}}{{c}}{{\\text{{{child["display_name"]}}}}} \\\\\n\\hline\n'
+                        table.append(child_header)
+                        
+                        # Переменные дочернего блока
+                        for var in child["variables"]:
+                            if var.get("Comment") == "RTE_OUTPUT":
                                 description = var.get("Description", {})
                                 full_description = description.get("FullDescription", "") if isinstance(description, dict) else ""
                                 desc_text = description.get("Description", "") if isinstance(description, dict) else str(description)                
                                 row = (full_description, desc_text, "-", "-", "-", "-", "-", "-", "-")
                                 row_str = _generate_row(row)
                                 table.append(row_str)
-
 
         # Список сигналов ЖЕЛЕЗА
         #statuses_list = device.modules.get_statuses_for_latex_sum_table()
@@ -482,7 +491,6 @@ class Manual:
                 #header = f'\\multicolumn{{9}}{{c}}{{{module["module"]}}} \\\\\n\\hline\n'
                 #table.append(header)
                 #table.extend(_generate_section(module["statuses"]))
-
 
         return table
 

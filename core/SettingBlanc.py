@@ -15,9 +15,11 @@ from docxtpl import DocxTemplate
 from logger.logger import Logger
 
 class SettingBlanc:
-    def __init__(self, code = '', versions = [{"edition":"X.X", "data": "XX.XX.XXXX"},]):
-        self.code = code
-        self.versions = versions
+    def __init__(self, device_data):
+        self.code = device_data["setting_blanc_code"]
+        self.versions = device_data[versions]
+        self.device_data = device_data
+        #[{"edition": "0.1", "data": "01.04.2026"}]
 
     # СУММАРНАЯ ФУНКЦИЯ СОЗДАНИЯ РАЗДЕЛА УСТАВКИ РЗиА
     def _create_section_settings(self, fsu, doc):
@@ -295,7 +297,7 @@ class SettingBlanc:
         add_table_final(doc)
         doc.save("temp.docx")
 
-    def get_blanc(self, device):
+    def get_blanc(self):
         self.create_template(device.fsu, device.modules, device.hmi, device.aux_funcs)
 
         doc = DocxTemplate('temp.docx')

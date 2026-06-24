@@ -138,13 +138,12 @@ class Application:
 
 
     def generate_setting_blanc_docx(self):
-        if self.device is None:
-            Logger.error('Устройство не инициализировано!')
-        else:
-            Logger.info('Начинаем создавать бланк уставок...')
-            setting_blanc = SettingBlanc(code=self.device_data["setting_blanc_code"], versions=self.device_data["versions"])
-            setting_blanc.get_blanc(device=self.device)
-            #Logger.info('Бланк уставок в docx создан')
+        if self.device_data is None:
+            self.init_device_data()
+        Logger.info('Начинаем создавать бланк уставок в формате word...')
+        setting_blanc = SettingBlanc(device_data=self.device_data)
+        setting_blanc.get_blanc()
+        #Logger.info('Бланк уставок в docx создан')
 
 
 ################################################################################################
@@ -157,8 +156,6 @@ class Application:
 #################################################################################################
 
 
-
-
     def renew_sum_table_latex(self):
         if self.device_data is None:
             self.init_device_data()
@@ -168,9 +165,9 @@ class Application:
         Logger.info('Суммарная таблица сигналов приложения в РЭ обновлена')
 
     def add_to_sqlite(self):
-        Logger.info('Запуск задачи обновления БД')
-        process_all_xlsx_files("db")
-        Logger.info('Задача обновления БД завершена')
+        Logger.info('Зарезервировано на будущее')
+        #process_all_xlsx_files("db")
+        #Logger.info('Задача обновления БД завершена')
 
 #######################################################################
 ######################################################################
