@@ -6,7 +6,7 @@ from logger.logger import Logger
 
 from core.Device import Device
 from core.DeviceDataManager import DeviceDataManager
-from core.SettingBlanc import SettingBlanc
+from core.SettingBlanc2 import SettingBlanc
 
 from core.Manual import Manual
 

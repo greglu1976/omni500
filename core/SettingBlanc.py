@@ -22,9 +22,9 @@ class SettingBlanc:
         #[{"edition": "0.1", "data": "01.04.2026"}]
 
     # СУММАРНАЯ ФУНКЦИЯ СОЗДАНИЯ РАЗДЕЛА УСТАВКИ РЗиА
-    def _create_section_settings(self, fsu, doc):
-        if not fsu.has_any_setting():
-            return
+    def _create_section_settings(self, doc):
+        #if not fsu.has_any_setting():
+            #return
         add_new_section_landscape(doc)
 
         p = doc.add_paragraph('УСТАВКИ РЗиА'+r'{% for fb in fsu.merged_fbs %}')
@@ -281,17 +281,23 @@ class SettingBlanc:
             space.style = 'TAGS'        
 
     def create_template(self, fsu, modules, hmi, aux_funcs):
+
+        path_to_json = self.device_data["path_to_json"]
+        # Загрузка вспомогательного файла, где находятится полное описание
+        with open(path_to_json+'/fsu-information.json', 'r', encoding='utf-8') as f:
+            self.fsu_information = json.load(f)['FunctionalBlocksInformation']
+
         doc = Document('origin.docx')
         # СОЗДАЕМ РАЗДЕЛ С УСТАВКАМИ РЗИА
-        self._create_section_settings(fsu, doc)
+        self._create_section_settings(doc)
         # СОЗДАЕМ РАЗДЕЛ С ПАРАМЕТРИРОВАНИЕ ДИСКРЕТНЫХ ВХОДОВ И ВЫХОДНЫХ РЕЛЕ
-        self._create_section_inouts(modules, fsu, doc)
+        #self._create_section_inouts(modules, fsu, doc)
         # СОЗДАЕМ РАЗДЕЛ С ПАРАМЕТРИРОВАНИЕ СВЕТОДИОДОВ И ФК
-        self._create_section_leds(modules, hmi, fsu, doc) 
+        #self._create_section_leds(modules, hmi, fsu, doc) 
         # СОЗДАЕМ РАЗДЕЛ С КОНФИГУРАЦИЕЙ
-        self._create_section_config(aux_funcs, doc)
+        #self._create_section_config(aux_funcs, doc)
         # СОЗДАЕМ РАЗДЕЛ С ПАРАМЕТРАМИ РЕГИСТРАЦИИ
-        self._create_section_disturb(fsu, doc)
+        #self._create_section_disturb(fsu, doc)
         # ДОБАВЛЯЕМ ФИНАЛЬНУЮ ТАБЛИЦУ С ПОДПИСЯМИ
         add_new_section(doc)
         add_table_final(doc)
