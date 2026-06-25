@@ -62,12 +62,12 @@ class Application:
             dpg.add_spacer(height=5)
 
             # Сохраняем идентификатор кнопки
-            self.init_button = dpg.add_button(
-                label="Инициализировать устройство",
-                callback=self.start_device_task,
-                enabled=False,
-                width=300
-            )
+            #self.init_button = dpg.add_button(
+                #label="Инициализировать устройство",
+                #callback=self.start_device_task,
+                #enabled=False,
+                #width=300
+            #)
 
             dpg.add_separator() 
             dpg.add_spacer(height=5)             
@@ -111,12 +111,18 @@ class Application:
 
         Logger.set_container("log_content", "log_window")
         
-        dpg.create_viewport(title="Omni-500 v0.0.2 20.06.26 FOR TESTING!", width=1215, height=450)
+        dpg.create_viewport(title="Omni-500 v0.0.3 25.06.26", width=1215, height=450)
         dpg.setup_dearpygui()
 
+
+    #################################### CALLBACKS ######################################
+
     def renew_abbrs_ru(self):
-        if self.device is None:
-            Logger.error('Устройство не инициализировано!')
+        if not self.is_device_selected():
+            Logger.warning('Устройство не выбрано')
+            return          
+        if self.device_data is None:
+            self.init_device_data()   
         else:
             manual = Manual(device_data=self.device_data)
             if manual.renew_abbrs_ru()==0:
@@ -125,9 +131,11 @@ class Application:
                 Logger.error('При обновлении перечня сокращений РУ возникли ошибки')               
 
 
-
 ##########################################################################################################
     def renew_abbrs(self):
+        if not self.is_device_selected():
+            Logger.warning('Устройство не выбрано')
+            return          
         if self.device_data is None:
             self.init_device_data()        
         manual = Manual(device_data=self.device_data)
@@ -138,6 +146,9 @@ class Application:
 
 
     def generate_setting_blanc_docx(self):
+        if not self.is_device_selected():
+            Logger.warning('Устройство не выбрано')
+            return        
         if self.device_data is None:
             self.init_device_data()
         Logger.info('Начинаем создавать бланк уставок в формате word...')
@@ -148,6 +159,9 @@ class Application:
 
 ################################################################################################
     def renew_setting_tables_re(self):
+        if not self.is_device_selected():
+            Logger.warning('Устройство не выбрано')
+            return
         if self.device_data is None:
             self.init_device_data()
         manual = Manual(device_data=self.device_data)
@@ -155,16 +169,18 @@ class Application:
         Logger.info('Таблицы с уставками в РЭ обновлены') # TODO добавить контроль обновления, если нет обновлений то другое сообщение
 #################################################################################################
 
-
     def renew_sum_table_latex(self):
+        if not self.is_device_selected():
+            Logger.warning('Устройство не выбрано')
+            return        
         if self.device_data is None:
             self.init_device_data()
-
         manual = Manual(device_data=self.device_data)
         manual.renew_sum_table_latex()
         Logger.info('Суммарная таблица сигналов приложения в РЭ обновлена')
 
-    def add_to_sqlite(self):
+
+    def add_to_sqlite(self): # DEPRECATED
         Logger.info('Зарезервировано на будущее')
         #process_all_xlsx_files("db")
         #Logger.info('Задача обновления БД завершена')
@@ -181,7 +197,7 @@ class Application:
         if devices:
             # Используем сохраненные идентификаторы
             dpg.configure_item(self.device_combo, items=devices, enabled=True)
-            dpg.configure_item(self.init_button, enabled=True)
+            #dpg.configure_item(self.init_button, enabled=True)
             Logger.info("Конфигурация загружена успешно")
         else:
             Logger.warning("Устройства не найдены в конфигурации")
@@ -253,6 +269,15 @@ class Application:
             Logger.info(f"Устройство: {self.device_displayed['name']} v{self.device_displayed['version']} успешно инициализировано")
             return True
 
+
+
+    def is_device_selected(self):
+        """Проверяет, выбрано ли устройство и инициализированы ли его данные"""
+        # Проверяем, что в комбобоксе что-то выбрано
+        selected_text = dpg.get_value(self.device_combo)
+        if not selected_text:
+            return False
+        return True
 
     def run(self):
         dpg.show_viewport()

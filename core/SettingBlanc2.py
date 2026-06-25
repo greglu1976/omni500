@@ -47,88 +47,100 @@ class SettingBlanc:
         if not self.base_structure:
             Logger.warning("Нет данных base_structure для генерации уставок")
             return
-        
+
         add_new_section_landscape(doc)
         
         # Основной заголовок
         p = doc.add_paragraph('УСТАВКИ РЗиА')
         p.style = 'ДОК Заголовок 1'
 
-
-        #for func_block in self.base_structure:
-            #print(func_block)
-            #print("====================================")
-
-
-
         for info in self.base_structure:
+            # --- ШАГ 1: Проверяем, нужно ли вообще выводить этот блок ---
+            
+            # 1. Проверяем уставки в самом корневом блоке
+            has_root_settings = False
+            if info.get("variables"):
+                has_root_settings = any(
+                    var.get("Comment") in ["RTE_INPUT;RTE_SETTING", "RTE_SETTING"] 
+                    for var in info["variables"]
+                )
+            
+            # 2. Проверяем уставки в дочерних блоках
+            has_child_settings = False
+            if info.get("children"):
+                for child in info["children"]:
+                    if child.get("variables"):
+                        if any(var.get("Comment") == "RTE_INPUT;RTE_SETTING" for var in child["variables"]):
+                            has_child_settings = True
+                            break
+            
+            # Если нет уставок ни в корне, ни в детях — пропускаем весь блок
+            if not has_root_settings and not has_child_settings:
+                continue
+
+            # --- ШАГ 2: Выводим заголовок родительского блока (так как данные есть) ---
             header = info["display_name"]
             p = doc.add_paragraph(header)
             p.style = 'ДОК Заголовок 2'
             
-            # Переменные корневого блока
-            if info["variables"]:
-                # Сначала проверяем, есть ли сигналы с RTE_OUTPUT
-                has_rte_output = any(var.get("Comment") == "RTE_INPUT;RTE_SETTING" for var in info["variables"])
+            # --- ШАГ 3: Обрабатываем переменные корневого блока ---
+            if has_root_settings:
+                header2 = "Общие уставки блока"
+                p = doc.add_paragraph(header2)
+                p.style = 'ДОК Таблица Название'
                 
-                if has_rte_output:
-                    header2 = "Общие уставки блока"
-                    p = doc.add_paragraph(header2)
-                    p.style = 'ДОК Таблица Название'
-                    sets = []
-                    for var in info["variables"]:
-                        if var.get("Comment") == "RTE_INPUT;RTE_SETTING":
-                            description = var.get("Description", {})
-                            full_description = description.get("FullDescription", "") if isinstance(description, dict) else ""
-                            desc_text = description.get("Description", "")
-                            min = description.get("Min", "")                            
-                            max = description.get("Max", "")
-                            step = description.get("Step", "")
-                            default = description.get("DefaultValue", "")
-                            units = description.get("Units", "")
+                sets = []
+                for var in info["variables"]:
+                    if var.get("Comment") == "RTE_INPUT;RTE_SETTING":
+                        description = var.get("Description", {})
+                        full_description = description.get("FullDescription", "") if isinstance(description, dict) else ""
+                        desc_text = description.get("Description", "")
+                        min_val = description.get("Min", "")                            
+                        max_val = description.get("Max", "")
+                        step = description.get("Step", "")
+                        default = description.get("DefaultValue", "")
+                        units = description.get("Units", "")
 
-                            row = (full_description, desc_text, min, max, units, step, default)
-                            sets.append(row)
+                        row = (full_description, desc_text, min_val, max_val, units, step, default)
+                        sets.append(row)
 
+                if sets: # Дополнительная проверка перед созданием таблицы
                     table = add_table_settings_core4(doc)
                     self._fill_table_settings(table, sets)
 
-            # Переменные дочерних блоков
+            # --- ШАГ 4: Обрабатываем переменные дочерних блоков ---
             if info["children"]:
                 for child in info["children"]:
-                    # Проверяем, есть ли сигналы RTE_OUTPUT в дочернем блоке
-                    has_rte_output = False
+                    # Проверяем наличие уставок в конкретном ребенке
+                    child_has_settings = False
                     if child.get("variables"):
                         for var in child["variables"]:
                             if var.get("Comment") == "RTE_INPUT;RTE_SETTING":
-                                has_rte_output = True
+                                child_has_settings = True
                                 break
                     
-                    # Выводим заголовок только если есть сигналы
-                    if has_rte_output:
-                        # Добавляем заголовок дочернего блока
+                    # Выводим заголовок ребенка и таблицу только если есть уставки
+                    if child_has_settings:
                         child_header = child["display_name"]
                         p = doc.add_paragraph(child_header)
                         p.style = 'ДОК Таблица Название'
-                        sets = []  # Создаем список для текущего дочернего блока
                         
-                        # Переменные дочернего блока - собираем их в sets
+                        sets = []
                         for var in child["variables"]:
                             if var.get("Comment") == "RTE_INPUT;RTE_SETTING":
                                 description = var.get("Description", {})
                                 full_description = description.get("FullDescription", "") if isinstance(description, dict) else ""
                                 desc_text = description.get("Description", "")
-                                min = description.get("Min", "")                            
-                                max = description.get("Max", "")
+                                min_val = description.get("Min", "")                            
+                                max_val = description.get("Max", "")
                                 step = description.get("Step", "")
                                 default = description.get("DefaultValue", "")
                                 units = description.get("Units", "")
                                 
-                                row = (full_description, desc_text, min, max, units, step, default)
-                                sets.append(row)  # Добавляем строку в список
+                                row = (full_description, desc_text, min_val, max_val, units, step, default)
+                                sets.append(row)
                         
-                        # Создаем таблицу ТОЛЬКО если есть данные
-                        if sets:  # Проверяем, что список не пустой
+                        if sets:
                             table = add_table_settings_core4(doc)
                             self._fill_table_settings(table, sets)
 
@@ -136,49 +148,6 @@ class SettingBlanc:
 
 
 
-
-
-
-
-
-
-        # Проходим по всем блокам
-        for func_block in self.base_structure:
-            func_type = func_block.get('type')
-            func_name = func_block.get('func_name', 'Без имени')
-
-            fixed_func_name = func_name.split("_")[0]     
-
-            if func_type == 'simple':
-
-                # Заголовок функции
-                p = doc.add_paragraph(self.abbr_dict.get(fixed_func_name, fixed_func_name))
-                p.style = 'ДОК Заголовок 2'
-
-                p = doc.add_paragraph(fixed_func_name)
-                p.style = 'ДОК Таблица Название'            
-                # Создаем и заполняем таблицу
-                if func_block.get('rows'):
-                    table = add_table_settings_core4(doc)
-                    self._fill_table_settings(table, func_block['rows'])
-            
-            elif func_type == 'complex':
-                # Заголовок составной функции
-                p = doc.add_paragraph(self.abbr_dict.get(fixed_func_name, fixed_func_name))
-                p.style = 'ДОК Заголовок 2'
-                
-                # Проходим по подфункциям
-                for sub_func in func_block.get('sub_functions', []):
-                    subtitle = sub_func.get('subtitle', '')
-                    
-                    if subtitle:
-                        p = doc.add_paragraph(subtitle)
-                        p.style = 'ДОК Таблица Название'
-                    
-                    if sub_func.get('rows'):
-                        table = add_table_settings_core4(doc)
-                        self._fill_table_settings(table, sub_func['rows'])
-                        p = doc.add_paragraph().style = "TAGS"
 
     def _fill_table_settings(self, table, rows_data):
         """
@@ -211,7 +180,7 @@ class SettingBlanc:
             row.cells[2].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
             
             # Ячейка 3 (Значение / Диапазон) - из col3 с обработкой note_
-            row.cells[3].text = row_data[2]
+            row.cells[3].text = str(row_data[2]) + " ... " + str(row_data[3])
             row.cells[3].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER 
             
             # Ячейка 4 (Ед. изм.) - из col4
@@ -265,9 +234,6 @@ class SettingBlanc:
             Logger.warning(f"Ошибка парсинга note_dict: {e}")
         
         return note_str
-
-
-
 
 
 
@@ -348,13 +314,6 @@ class SettingBlanc:
         self.base_structure = base_structure
         Logger.info(f"Загружено {len(base_structure)} блоков уставок")
         return base_structure
-
-
-
-
-
-
-
 
 
 
