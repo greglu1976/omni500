@@ -24,23 +24,21 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 class SettingBlanc:
     def __init__(self, device_data):
 
-        Logger.info(f"Путь к пакетам поддержки: {device_data['path_to_support_packets']}")
-        packet_path = device_data['path_to_support_packets']
+        Logger.info(f"Путь к пакетам поддержки: {device_data['path_to_json']}")
+        self.packet_path = device_data['path_to_json']
         self.device_data = device_data
         self.code = self.device_data["setting_blanc_code"]
         self.versions = self.device_data["versions"]
         self.base_structure = None  # Будет хранить структуру из get_all_settings()
 
-        self.extension_handler = ExtensionHandler(packet_path) # Для раздела конфигурация оттуда берутся перечисления
-        self.config_handler = MainConfigHandler.from_json_file(packet_path + "meta.json")
-        self.order_handler = OrderHandler(self.config_handler, self.extension_handler, packet_path)
+        #self.extension_handler = ExtensionHandler(packet_path) # Для раздела конфигурация оттуда берутся перечисления
+        #self.config_handler = MainConfigHandler.from_json_file(packet_path + "meta.json")
+        #self.order_handler = OrderHandler(self.config_handler, self.extension_handler, packet_path)
 
-
-
-        self.di_list = []
-        self.maps = self.order_handler.get_mapping()
-        with open("abbr.json", 'r', encoding='utf-8') as f:
-            self.abbr_dict = json.load(f)
+        #self.di_list = []
+        #self.maps = self.order_handler.get_mapping()
+        #with open("abbr.json", 'r', encoding='utf-8') as f:
+            #self.abbr_dict = json.load(f)
         
 
     # НОВАЯ ФУНКЦИЯ ДЛЯ CORE4
@@ -295,14 +293,20 @@ class SettingBlanc:
 
 
     def create_template(self):
-        """
-        Создает шаблон для Core4
-        """
-       
-        # Создаем документ
-        #doc = Document('origin.docx')
-        doc_tpl = DocxTemplate('origin.docx')
 
+        # Загрузка вспомогательного файла, где находятится полное описание
+        with open(self.packet_path+'/fsu-information.json', 'r', encoding='utf-8') as f:
+            self.fsu_information = json.load(f)['FunctionalBlocksInformation']
+
+        # Загрузка вспомогательного файла, где находится полное описание
+        with open(self.packet_path + '/meta.json', 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # Собираем необходимые данные по устройству     
+        DeviceSpecification = data['DeviceSpecification']
+        HmiSpecification = data['HmiSpecification']
+        # Сохраняем количество групп уставок
+        self.SettingGroupCount = data['SettingGroupCount']
 
         last_version = ""
         colontile = ''
@@ -310,15 +314,12 @@ class SettingBlanc:
             last_version = self.device_data['versions'][-1]
             colontile = f"Редакция {last_version['edition']} от {last_version['data']}"
 
-
-
-        if "-ЮНИТ-" in self.config_handler.config_version:
-            parts = self.config_handler.config_version.split("-ЮНИТ-", 1)  # maxsplit=1
-            first_part = parts[0]
-            second_part = "ЮНИТ-" + parts[1]
-        else:
-            first_part = self.config_handler.config_version
-            second_part = None  # или '' , или raise исключение
+        def order_to_str(order_code):
+            result = '-'.join(order_code.values())
+            return result if result.strip() else "Не указано"
+        
+        first_part = order_to_str(DeviceSpecification["OrderCode"])
+        second_part = order_to_str(HmiSpecification["OrderCode"])
 
         context = {
             "title": self.device_data['full_description'],
@@ -328,37 +329,41 @@ class SettingBlanc:
             "versions":  self.device_data['versions'],
             "device_name":  self.device_data['name'],
             "colontile": colontile,
-            "packet": self.config_handler.model_version,
+            "packet": "self.config_handler.model_version",
             "version": last_version['edition'],
             "date": last_version['data']
         }
 
+        # Создаем документ
+        doc_tpl = DocxTemplate('origin.docx')
         doc_tpl.render(context)
         doc_tpl.save('temp.docx')
         doc = Document('temp.docx')
+
 
         # Получаем структуру уставок
         #self.get_all_settings()
 
 
-        struct = self.prepare_structure()
+        self.struct = self.prepare_structure()
         # Генерируем раздел уставок (новый метод)
         Logger.info("Создаем раздел Уставки РЗиА...")
 
+        #self._create_section_settings_core4(doc)
 
 
-        
-        self._create_section_settings_core4(doc)
+
+
         Logger.info("Создаем раздел Матрица входов и выходных реле...")
-        self._create_section_inouts_core4(doc)
+        #self._create_section_inouts_core4(doc)
 
-        if second_part:
-            Logger.info("ИЧМ присутствует. Создаем раздел Настройка светодиодов и ФК...")
-            self._create_section_leds_core4(second_part, doc)
+        #if second_part:
+            #Logger.info("ИЧМ присутствует. Создаем раздел Настройка светодиодов и ФК...")
+            #self._create_section_leds_core4(second_part, doc)
         Logger.info("Создаем раздел Конфигурация...")
-        self._create_section_config_core4(doc)
+        #self._create_section_config_core4(doc)
         Logger.info("Создаем раздел Натройка регистрации...")
-        self._create_section_disturb_core4(doc)
+        #self._create_section_disturb_core4(doc)
         # Остальные разделы пока закомментированы, при необходимости аналогично адаптировать
         # self._create_section_disturb_core4(device.fsu, doc)
         
