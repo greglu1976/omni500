@@ -53,7 +53,95 @@ class SettingBlanc:
         # Основной заголовок
         p = doc.add_paragraph('УСТАВКИ РЗиА')
         p.style = 'ДОК Заголовок 1'
-        
+
+
+        #for func_block in self.base_structure:
+            #print(func_block)
+            #print("====================================")
+
+
+
+        for info in self.base_structure:
+            header = info["display_name"]
+            p = doc.add_paragraph(header)
+            p.style = 'ДОК Заголовок 2'
+            
+            # Переменные корневого блока
+            if info["variables"]:
+                # Сначала проверяем, есть ли сигналы с RTE_OUTPUT
+                has_rte_output = any(var.get("Comment") == "RTE_INPUT;RTE_SETTING" for var in info["variables"])
+                
+                if has_rte_output:
+                    header2 = "Общие уставки блока"
+                    p = doc.add_paragraph(header2)
+                    p.style = 'ДОК Таблица Название'
+                    sets = []
+                    for var in info["variables"]:
+                        if var.get("Comment") == "RTE_INPUT;RTE_SETTING":
+                            description = var.get("Description", {})
+                            full_description = description.get("FullDescription", "") if isinstance(description, dict) else ""
+                            desc_text = description.get("Description", "")
+                            min = description.get("Min", "")                            
+                            max = description.get("Max", "")
+                            step = description.get("Step", "")
+                            default = description.get("DefaultValue", "")
+                            units = description.get("Units", "")
+
+                            row = (full_description, desc_text, min, max, units, step, default)
+                            sets.append(row)
+
+                    table = add_table_settings_core4(doc)
+                    self._fill_table_settings(table, sets)
+
+            # Переменные дочерних блоков
+            if info["children"]:
+                for child in info["children"]:
+                    # Проверяем, есть ли сигналы RTE_OUTPUT в дочернем блоке
+                    has_rte_output = False
+                    if child.get("variables"):
+                        for var in child["variables"]:
+                            if var.get("Comment") == "RTE_INPUT;RTE_SETTING":
+                                has_rte_output = True
+                                break
+                    
+                    # Выводим заголовок только если есть сигналы
+                    if has_rte_output:
+                        # Добавляем заголовок дочернего блока
+                        child_header = child["display_name"]
+                        p = doc.add_paragraph(child_header)
+                        p.style = 'ДОК Таблица Название'
+                        sets = []  # Создаем список для текущего дочернего блока
+                        
+                        # Переменные дочернего блока - собираем их в sets
+                        for var in child["variables"]:
+                            if var.get("Comment") == "RTE_INPUT;RTE_SETTING":
+                                description = var.get("Description", {})
+                                full_description = description.get("FullDescription", "") if isinstance(description, dict) else ""
+                                desc_text = description.get("Description", "")
+                                min = description.get("Min", "")                            
+                                max = description.get("Max", "")
+                                step = description.get("Step", "")
+                                default = description.get("DefaultValue", "")
+                                units = description.get("Units", "")
+                                
+                                row = (full_description, desc_text, min, max, units, step, default)
+                                sets.append(row)  # Добавляем строку в список
+                        
+                        # Создаем таблицу ТОЛЬКО если есть данные
+                        if sets:  # Проверяем, что список не пустой
+                            table = add_table_settings_core4(doc)
+                            self._fill_table_settings(table, sets)
+
+        return
+
+
+
+
+
+
+
+
+
         # Проходим по всем блокам
         for func_block in self.base_structure:
             func_type = func_block.get('type')
@@ -108,26 +196,7 @@ class SettingBlanc:
         # Добавляем строки с данными (начиная с row_index=2, т.к. 0 и 1 - заголовки)
         for i, row_data in enumerate(rows_data, start=1):
             row = table.add_row()
-            
-            # --- Обработка Ячейки 1 (ПО ЮС) и Ячейки 2 (ИЧМ) ---
-            raw_col1 = row_data.get('col1', '')
-            
-            # Находим все вхождения текста в круглых скобках
-            matches = list(re.finditer(r'\(([^()]*)\)', raw_col1))
-            
-            final_col1 = raw_col1
-            final_col2 = ""  # По умолчанию ИЧМ пуст
-            
-            if matches:
-                # Берем последнее найденное совпадение
-                last_match = matches[-1]
-                extracted_text = last_match.group(1)
-                
-                # Удаляем последние скобки с их содержимым
-                final_col1 = raw_col1[:last_match.start()] + raw_col1[last_match.end():]
-                final_col1 = final_col1.strip()
-                final_col2 = extracted_text
-            
+              
             # --- Заполнение таблицы ---
             
             # Ячейка 0 (№) - номер по порядку
@@ -135,29 +204,26 @@ class SettingBlanc:
             row.cells[0].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
             
             # Ячейка 1 (ПО ЮС) - очищенное значение
-            row.cells[1].text = final_col1
+            row.cells[1].text = row_data[0]
             
             # Ячейка 2 (ИЧМ) - значение из последних скобок (или пусто)
-            row.cells[2].text = final_col2
+            row.cells[2].text = row_data[1]
             row.cells[2].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
             
             # Ячейка 3 (Значение / Диапазон) - из col3 с обработкой note_
-            col3_value = row_data.get('col3', '')
-            if isinstance(col3_value, str) and col3_value.startswith('note_{'):
-                col3_value = self._parse_note_dict(col3_value)
-            row.cells[3].text = col3_value
+            row.cells[3].text = row_data[2]
             row.cells[3].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER 
             
             # Ячейка 4 (Ед. изм.) - из col4
-            row.cells[4].text = row_data.get('col4', '')
+            row.cells[4].text = row_data[4]
             row.cells[4].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
             
             # Ячейка 5 (Шаг) - из col5
-            row.cells[5].text = row_data.get('col5', '')
+            row.cells[5].text = row_data[5]
             row.cells[5].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
             
             # Ячейка 6 (Значение по умолчанию) - из col6
-            row.cells[6].text = row_data.get('col6', '')
+            row.cells[6].text = row_data[6]
             row.cells[6].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
             
             # Ячейки 7-10 (Группы уставок) - не заполняем
@@ -306,7 +372,7 @@ class SettingBlanc:
         DeviceSpecification = data['DeviceSpecification']
         HmiSpecification = data['HmiSpecification']
         # Сохраняем количество групп уставок
-        self.SettingGroupCount = data['SettingGroupCount']
+        self.SettingGroupCount = DeviceSpecification['SettingGroupCount']
 
         last_version = ""
         colontile = ''
@@ -329,7 +395,7 @@ class SettingBlanc:
             "versions":  self.device_data['versions'],
             "device_name":  self.device_data['name'],
             "colontile": colontile,
-            "packet": "self.config_handler.model_version",
+            "packet": data["Version"],
             "version": last_version['edition'],
             "date": last_version['data']
         }
@@ -345,11 +411,11 @@ class SettingBlanc:
         #self.get_all_settings()
 
 
-        self.struct = self.prepare_structure()
+        self.base_structure = self.prepare_structure()
         # Генерируем раздел уставок (новый метод)
         Logger.info("Создаем раздел Уставки РЗиА...")
 
-        #self._create_section_settings_core4(doc)
+        self._create_section_settings_core4(doc)
 
 
 
