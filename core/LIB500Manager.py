@@ -41,7 +41,6 @@ class LIB500Manager:
 
 
     def get_table_latex(self, lib_path, macroblock):
-
         # Загрузка JSON файла
         with open(self.path+'/meta.json', 'r', encoding='utf-8') as f:
             functional_blocks = json.load(f)['Schema']['Info']['Composition']['FunctionalBlocks']
@@ -79,8 +78,8 @@ class LIB500Manager:
                     print("Нет структуры Info/Composition в блоке.")
                     continue
 
-                data = target_fb['Info']['Composition']
-                macro_blocks = data.get("MacroBlocks", [])
+                composition = target_fb['Info']['Composition']
+                macro_blocks = composition.get("MacroBlocks", [])
                 if not macro_blocks:
                     print("Нет макроблоков в файле.")
                     continue
@@ -94,12 +93,11 @@ class LIB500Manager:
 
                     for setting in macro.get("Settings", []):
                         setting_dict = setting.get("Setting", {})
-                        data = setting_dict.get("OriginData")
-                        if not data:
-                            continue
 
-                        # Получаем описание из OriginData
+                        # Получаем OriginData (может быть None)
                         origin_data = setting_dict.get("OriginData")
+
+                        # Получаем описание из OriginData, если есть
                         description = ""
                         if origin_data:
                             desc_obj = origin_data.get("Description")
@@ -109,8 +107,6 @@ class LIB500Manager:
                                 description = desc_obj
                             else:
                                 description = ""
-
-                        # Если описание пустое – берём Name из верхнего уровня
                         if not description or description.strip() == "":
                             description = setting.get("Name", "")
 
@@ -120,22 +116,37 @@ class LIB500Manager:
                         if fsu_info:
                             name = fsu_info.get("FullDescription")
 
-                        if not data.get("IsConstant", True):
+                        # ---- Формируем запись для настройки (всегда) ----
+                        if origin_data is not None:
                             setting_info = {
                                 "Name": name,
-                                "Value": data.get("Value"),
-                                "Unit": data.get("Unit"),
-                                "Min": data.get("Min"),
-                                "Max": data.get("Max"),
-                                "Default": data.get("LogicValue", {}).get("Origin"),
-                                "Step": data.get("Step"),
+                                "Unit": origin_data.get("Unit"),
+                                "Min": origin_data.get("Min"),
+                                "Max": origin_data.get("Max"),
+                                "Default": origin_data.get("LogicValue", {}).get("Origin"),
+                                "Step": origin_data.get("Step"),
                                 "Description": description,
-                                "IsConstant": data.get("IsConstant"),
-                                "DataType": data.get("DataType"),
-                                "PredefinedValues": get_PredefinedValues(data.get("LogicValue")),
-                                "Id": data.get("Id")
+                                "IsConstant": origin_data.get("IsConstant"),
+                                "DataType": origin_data.get("DataType"),
+                                "PredefinedValues": get_PredefinedValues(origin_data.get("LogicValue")),
+                                "Id": origin_data.get("Id")
                             }
-                            macro_settings[macro_name].append(setting_info)
+                        else:
+                            setting_info = {
+                                "Name": name,
+                                "Unit": r"\textcolor{red}{None}",
+                                "Min": r"\textcolor{red}{None}",
+                                "Max": r"\textcolor{red}{None}",
+                                "Default": r"\textcolor{red}{None}",
+                                "Step": r"\textcolor{red}{None}",
+                                "Description": r"\textcolor{red}{None}",
+                                "IsConstant": r"\textcolor{red}{None}",
+                                "DataType": r"\textcolor{red}{None}",
+                                "PredefinedValues": r"\textcolor{red}{None}",
+                                "Id": r"\textcolor{red}{None}"
+                            }
+
+                        macro_settings[macro_name].append(setting_info)
 
             else:
                 # ---- Режим 'general' (корневые уставки) ----
@@ -144,11 +155,8 @@ class LIB500Manager:
 
                 for setting in target_fb.get("Settings", []):
                     setting_dict = setting.get("Setting", {})
-                    data = setting_dict.get("Data")
-                    if not data:
-                        continue
-
                     origin_data = setting_dict.get("OriginData")
+
                     description = ""
                     if origin_data:
                         desc_obj = origin_data.get("Description")
@@ -158,7 +166,6 @@ class LIB500Manager:
                             description = desc_obj
                         else:
                             description = ""
-
                     if not description or description.strip() == "":
                         description = setting.get("Name", "")
 
@@ -167,22 +174,37 @@ class LIB500Manager:
                     if fsu_info:
                         name = fsu_info.get("FullDescription")
 
-                    if not data.get("IsConstant", True):
+                    # ---- Формируем запись для настройки (всегда) ----
+                    if origin_data is not None:
                         setting_info = {
                             "Name": name,
-                            "Value": data.get("Value"),
-                            "Unit": data.get("Unit"),
-                            "Min": data.get("Min"),
-                            "Max": data.get("Max"),
-                            "Default": data.get("LogicValue", {}).get("Origin"),
-                            "Step": data.get("Step"),
+                            "Unit": origin_data.get("Unit"),
+                            "Min": origin_data.get("Min"),
+                            "Max": origin_data.get("Max"),
+                            "Default": origin_data.get("LogicValue", {}).get("Origin"),
+                            "Step": origin_data.get("Step"),
                             "Description": description,
-                            "IsConstant": data.get("IsConstant"),
-                            "DataType": data.get("DataType"),
-                            "PredefinedValues": get_PredefinedValues(data.get("LogicValue")),
-                            "Id": data.get("Id")
+                            "IsConstant": origin_data.get("IsConstant"),
+                            "DataType": origin_data.get("DataType"),
+                            "PredefinedValues": get_PredefinedValues(origin_data.get("LogicValue")),
+                            "Id": origin_data.get("Id")
                         }
-                        macro_settings[macro_name].append(setting_info)
+                    else:
+                        setting_info = {
+                            "Name": name,
+                            "Unit": None,
+                            "Min": None,
+                            "Max": None,
+                            "Default": None,
+                            "Step": None,
+                            "Description": description,
+                            "IsConstant": None,
+                            "DataType": None,
+                            "PredefinedValues": None,
+                            "Id": None
+                        }
+
+                    macro_settings[macro_name].append(setting_info)
 
             # Формируем результат для текущего режима
             for macro_name, settings_list in macro_settings.items():
