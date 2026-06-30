@@ -46,7 +46,7 @@ class LIB500Manager:
         with open(self.path+'/meta.json', 'r', encoding='utf-8') as f:
             functional_blocks = json.load(f)['Schema']['Info']['Composition']['FunctionalBlocks']
 
-        # Загрузка вспомогательного файла, где находятится полное описание
+        # Загрузка вспомогательного файла, где находится полное описание
         with open(self.path+'/fsu-information.json', 'r', encoding='utf-8') as f:
             self.fsu_information = json.load(f)['FunctionalBlocksInformation']
 
@@ -56,154 +56,141 @@ class LIB500Manager:
             if isinstance(fb, dict) and fb.get('DisplayName') == lib_path:
                 target_fb = fb
                 break
-        
+
         if target_fb is None:
             print(f"Функциональный блок с именем '{lib_path}' не найден.")
             return []
-        
+
         # Определяем, какие режимы нужно обработать
         modes_to_process = []
         if macroblock == 'general+-':
             modes_to_process = ['general', '-']
         else:
             modes_to_process = [macroblock]
-        
-        # Общий словарь для всех результатов
+
         all_results = []
-        
+
         for current_mode in modes_to_process:
-            # Словарь для группировки уставок по макроблокам
             macro_settings = defaultdict(list)
-            
+
             if current_mode != 'general':
-                # Проверяем наличие Info и Composition
+                # ---- Режим обработки макроблоков ----
                 if 'Info' not in target_fb or 'Composition' not in target_fb['Info']:
                     print("Нет структуры Info/Composition в блоке.")
                     continue
-                
+
                 data = target_fb['Info']['Composition']
-                
-                # Проход по макроблокам
                 macro_blocks = data.get("MacroBlocks", [])
                 if not macro_blocks:
                     print("Нет макроблоков в файле.")
                     continue
-                
+
                 for macro in macro_blocks:
                     macro_name = macro.get("DisplayName", "Безымянный")
                     macro_name_displayed = macro.get("Name")
-                    
-                    # Если macroblock задан как конкретное имя — пропускаем все, кроме него
+
                     if current_mode != "-" and macro_name != current_mode:
                         continue
-                    
-                    # Уставки
+
                     for setting in macro.get("Settings", []):
                         setting_dict = setting.get("Setting", {})
-                        
-                        # Берем OriginData
-                        setting_data = setting_dict.get("OriginData")
-                        
-                        # Проверяем описание в OriginData
-                        desc_obj = setting_data.get("Description") if setting_data else None
-                        desc_value = desc_obj.get("Description") if isinstance(desc_obj, dict) else desc_obj
-                        
-                        # Если описание пустое или отсутствует
-                        if not desc_value or desc_value.strip() == "":
-                            # Берем Data
-                            setting_data = setting_dict.get("Data")
-                        
-                        # ИСПРАВЛЕНИЕ: Извлекаем строку Description из словаря
-                        description = setting_data.get("Description")
-                        if isinstance(description, dict):
-                            description = description.get("Description", "")
-                        elif not isinstance(description, str):
-                            description = ""
+                        data = setting_dict.get("OriginData")
+                        if not data:
+                            continue
 
+                        # Получаем описание из OriginData
+                        origin_data = setting_dict.get("OriginData")
+                        description = ""
+                        if origin_data:
+                            desc_obj = origin_data.get("Description")
+                            if isinstance(desc_obj, dict):
+                                description = desc_obj.get("Description", "")
+                            elif isinstance(desc_obj, str):
+                                description = desc_obj
+                            else:
+                                description = ""
+
+                        # Если описание пустое – берём Name из верхнего уровня
+                        if not description or description.strip() == "":
+                            description = setting.get("Name", "")
+
+                        # Получаем полное описание из внешнего файла
                         fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
-
                         name = r"\textcolor{red}{FullDescription НЕ НАЙДЕН!}"
                         if fsu_info:
                             name = fsu_info.get("FullDescription")
 
-
-                        if setting_data and not setting_data.get("IsConstant", True):
-                            # Формируем уставку
+                        if not data.get("IsConstant", True):
                             setting_info = {
                                 "Name": name,
-                                "Value": setting_data.get("Value"),
-                                "Unit": setting_data.get("Unit"),
-                                "Min": setting_data.get("Min"),
-                                "Max": setting_data.get("Max"),
-                                "Default": setting_data.get("LogicValue")["Origin"],
-                                "Step": setting_data.get("Step"),
+                                "Value": data.get("Value"),
+                                "Unit": data.get("Unit"),
+                                "Min": data.get("Min"),
+                                "Max": data.get("Max"),
+                                "Default": data.get("LogicValue", {}).get("Origin"),
+                                "Step": data.get("Step"),
                                 "Description": description,
-                                "IsConstant": setting_data.get("IsConstant"),
-                                "DataType": setting_data.get("DataType"),
-                                "PredefinedValues": get_PredefinedValues(setting_data.get("LogicValue")),
-                                "Id": setting_data.get("Id")
+                                "IsConstant": data.get("IsConstant"),
+                                "DataType": data.get("DataType"),
+                                "PredefinedValues": get_PredefinedValues(data.get("LogicValue")),
+                                "Id": data.get("Id")
                             }
                             macro_settings[macro_name].append(setting_info)
-            else:
-                # Режим 'general' - берем уставки из корневого блока
-                macro_name = lib_path
-                macro_name_displayed = target_fb.get("Name", lib_path) 
 
-                # Уставки из корневого блока
+            else:
+                # ---- Режим 'general' (корневые уставки) ----
+                macro_name = lib_path
+                macro_name_displayed = target_fb.get("Name", lib_path)
+
                 for setting in target_fb.get("Settings", []):
                     setting_dict = setting.get("Setting", {})
-                    
-                    # Берем OriginData
-                    setting_data = setting_dict.get("OriginData")
-                    
-                    # Проверяем описание в OriginData
-                    desc_obj = setting_data.get("Description") if setting_data else None
-                    desc_value = desc_obj.get("Description") if isinstance(desc_obj, dict) else desc_obj
-                    
-                    # Если описание пустое или отсутствует
-                    if not desc_value or desc_value.strip() == "":
-                        # Берем Data
-                        setting_data = setting_dict.get("Data")
-                    
-                    # ИСПРАВЛЕНИЕ: Извлекаем строку Description из словаря
-                    description = setting_data.get("Description")
-                    if isinstance(description, dict):
-                        description = description.get("Description", "")
-                    elif not isinstance(description, str):
-                        description = ""
+                    data = setting_dict.get("Data")
+                    if not data:
+                        continue
+
+                    origin_data = setting_dict.get("OriginData")
+                    description = ""
+                    if origin_data:
+                        desc_obj = origin_data.get("Description")
+                        if isinstance(desc_obj, dict):
+                            description = desc_obj.get("Description", "")
+                        elif isinstance(desc_obj, str):
+                            description = desc_obj
+                        else:
+                            description = ""
+
+                    if not description or description.strip() == "":
+                        description = setting.get("Name", "")
 
                     fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
-
                     name = r"\textcolor{red}{FullDescription НЕ НАЙДЕН!}"
                     if fsu_info:
                         name = fsu_info.get("FullDescription")
 
-                    if setting_data and not setting_data.get("IsConstant", True):
+                    if not data.get("IsConstant", True):
                         setting_info = {
                             "Name": name,
-                            "Value": setting_data.get("Value"),
-                            "Unit": setting_data.get("Unit"),
-                            "Min": setting_data.get("Min"),
-                            "Max": setting_data.get("Max"),
-                            "Default": setting_data.get("LogicValue")["Origin"],
-                            "Step": setting_data.get("Step"),
+                            "Value": data.get("Value"),
+                            "Unit": data.get("Unit"),
+                            "Min": data.get("Min"),
+                            "Max": data.get("Max"),
+                            "Default": data.get("LogicValue", {}).get("Origin"),
+                            "Step": data.get("Step"),
                             "Description": description,
-                            "IsConstant": setting_data.get("IsConstant"),
-                            "DataType": setting_data.get("DataType"),
-                            "PredefinedValues": get_PredefinedValues(setting_data.get("LogicValue")),
-                            "Id": setting_data.get("Id")
+                            "IsConstant": data.get("IsConstant"),
+                            "DataType": data.get("DataType"),
+                            "PredefinedValues": get_PredefinedValues(data.get("LogicValue")),
+                            "Id": data.get("Id")
                         }
                         macro_settings[macro_name].append(setting_info)
-            
+
             # Формируем результат для текущего режима
             for macro_name, settings_list in macro_settings.items():
                 if macroblock not in ("-", "general+-"):
-                    # Заменяем имя макроблока на "-", если запрошен конкретный
                     all_results.append({"MacroBlock": "-", "Settings": settings_list})
                 else:
-                    # Иначе оставляем настоящее имя
                     all_results.append({"MacroBlock": macro_name, "Settings": settings_list})
-        
+
         return all_results
 
 

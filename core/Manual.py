@@ -153,7 +153,7 @@ class Manual:
             Logger.error("Error: path_to_latex_desc is empty or missing")
             return
         path_to_desc = path_to_desc.rstrip('/\\')   
-        self.paths = [path_to_desc + "/Приложение. Уставки/settings.tex",] # Перезаписываем self.paths одной строкой пути к файлу settings в приложении Уставки
+        self.paths = [path_to_desc + "/Приложение. Уставки/_latex/appset.tex",] # Перезаписываем self.paths одной строкой пути к файлу settings в приложении Уставки
 
         for path in self.paths:
             if not os.path.exists(path):
