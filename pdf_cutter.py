@@ -1,10 +1,14 @@
 import fitz  # PyMuPDF
 import os
+import shutil
 
 def crop_pages_force_normal(input_pdf, output_folder, margins_mm):
     """
     Принудительно убирает поворот и поворачивает содержимое на 90 градусов при обрезке
     """
+    # Удаляем существующую папку и создаем новую
+    if os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
     os.makedirs(output_folder, exist_ok=True)
     
     doc = fitz.open(input_pdf)
@@ -57,4 +61,7 @@ def crop_pages_force_normal(input_pdf, output_folder, margins_mm):
 
 # Использование
 margins_mm = (6, 6, 21, 6)
+
+print("Входной файл input.pdf формат А2 печать из Компаса через PDF24")
+print("Результат в папке output_pages. Старые файлы удаляются")
 crop_pages_force_normal('input.pdf', 'output_pages', margins_mm)
