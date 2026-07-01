@@ -9,33 +9,22 @@ class LIB500Manager:
         self.path = path_to_json
 
     def get_fsu_info_data(self, name, parameter):
-
-        """
-        Get FSU information data for a specific macroblock and parameter.
-        
-        Args:
-            name: The name of the macroblock to search for
-            parameter: The parameter (Description) to look up
-            
-        Returns:
-            The matching variable information or None if not found
-        """
-
-        # Search through the list of functional blocks
+        # Сначала ищем в fsu_information
         for block in self.fsu_information:
             if block.get("Name") == name:
-                # Found the matching block, now search for the variable
                 for variable in block.get("Variables", []):
                     var = variable.get("Description")
                     if var.get("Description") == parameter:
-                        #print(f"Variable with Description '{parameter}' FOUND in block '{name}'")
-                        #print("FOUND", var)
                         return var
-                #print(f"Variable with Description '{parameter}' not found in block '{name}'")
+                # Блок найден, но переменная не найдена — выходим из цикла по блокам
+                break
 
-                #print("NOT FOUND")
-                return None
-        print(f"Block with Name '{name}' not found")
+        # Если блок не найден или переменная не найдена — ищем в self.variables
+        for variable in self.variables:
+            var = variable.get("Description")
+            if var and var.get("Description") == parameter:
+                return var
+
         return None
 
 
@@ -47,7 +36,9 @@ class LIB500Manager:
 
         # Загрузка вспомогательного файла, где находится полное описание
         with open(self.path+'/fsu-information.json', 'r', encoding='utf-8') as f:
-            self.fsu_information = json.load(f)['FunctionalBlocksInformation']
+            data = json.load(f)
+            self.fsu_information = data.get('FunctionalBlocksInformation', [])
+            self.variables = data.get('FunctionalSchemaInformation', {}).get('Variables', [])
 
         # Ищем нужный функциональный блок
         target_fb = None
@@ -85,22 +76,26 @@ class LIB500Manager:
                     continue
 
                 for macro in macro_blocks:
-                    macro_name = macro.get("DisplayName", "Безымянный")
-                    macro_name_displayed = macro.get("Name")
+                    macro_display_name = macro.get("DisplayName", "Безымянный")
 
-                    if current_mode != "-" and macro_name != current_mode:
+                    if current_mode != "-" and macro_display_name != current_mode:
                         continue
+
+                    # Имя макроблока для поиска в fsu (поле Name из meta)
+                    macro_name_for_fsu = macro.get("Name")
 
                     for setting in macro.get("Settings", []):
                         setting_dict = setting.get("Setting", {})
 
-                        # Получаем OriginData (может быть None)
-                        origin_data = setting_dict.get("OriginData")
+                        # Получаем Data или OriginData
+                        data = setting_dict.get("Data")
+                        if data is None:
+                            data = setting_dict.get("OriginData")
 
-                        # Получаем описание из OriginData, если есть
+                        # Извлекаем описание
                         description = ""
-                        if origin_data:
-                            desc_obj = origin_data.get("Description")
+                        if data is not None:
+                            desc_obj = data.get("Description")
                             if isinstance(desc_obj, dict):
                                 description = desc_obj.get("Description", "")
                             elif isinstance(desc_obj, str):
@@ -111,55 +106,60 @@ class LIB500Manager:
                             description = setting.get("Name", "")
 
                         # Получаем полное описание из внешнего файла
-                        fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
+                        fsu_info = self.get_fsu_info_data(macro_name_for_fsu, description)
                         name = r"\textcolor{red}{FullDescription НЕ НАЙДЕН!}"
                         if fsu_info:
-                            name = fsu_info.get("FullDescription")
+                            name = fsu_info.get("FullDescription", name)
 
-                        # ---- Формируем запись для настройки (всегда) ----
-                        if origin_data is not None:
+                        # ---- Формируем запись для настройки ----
+                        if data is None:
+                            # Если нет данных, все поля, кроме имени и описания, устанавливаем в None
                             setting_info = {
                                 "Name": name,
-                                "Unit": origin_data.get("Unit"),
-                                "Min": origin_data.get("Min"),
-                                "Max": origin_data.get("Max"),
-                                "Default": origin_data.get("LogicValue", {}).get("Origin"),
-                                "Step": origin_data.get("Step"),
+                                "Unit": None,
+                                "Min": None,
+                                "Max": None,
+                                "Default": None,
+                                "Step": None,
                                 "Description": description,
-                                "IsConstant": origin_data.get("IsConstant"),
-                                "DataType": origin_data.get("DataType"),
-                                "PredefinedValues": get_PredefinedValues(origin_data.get("LogicValue")),
-                                "Id": origin_data.get("Id")
+                                "IsConstant": None,
+                                "DataType": None,
+                                "PredefinedValues": None,
+                                "Id": None
                             }
                         else:
+                            # Обычное заполнение
                             setting_info = {
                                 "Name": name,
-                                "Unit": r"\textcolor{red}{None}",
-                                "Min": r"\textcolor{red}{None}",
-                                "Max": r"\textcolor{red}{None}",
-                                "Default": r"\textcolor{red}{None}",
-                                "Step": r"\textcolor{red}{None}",
-                                "Description": r"\textcolor{red}{None}",
-                                "IsConstant": r"\textcolor{red}{None}",
-                                "DataType": r"\textcolor{red}{None}",
-                                "PredefinedValues": r"\textcolor{red}{None}",
-                                "Id": r"\textcolor{red}{None}"
+                                "Unit": data.get("Unit"),
+                                "Min": data.get("Min"),
+                                "Max": data.get("Max"),
+                                "Default": data.get("LogicValue", {}).get("Origin"),
+                                "Step": data.get("Step"),
+                                "Description": description,
+                                "IsConstant": data.get("IsConstant"),
+                                "DataType": data.get("DataType"),
+                                "PredefinedValues": get_PredefinedValues(data.get("LogicValue")),
+                                "Id": data.get("Id")
                             }
 
-                        macro_settings[macro_name].append(setting_info)
+                        macro_settings[macro_display_name].append(setting_info)
 
             else:
                 # ---- Режим 'general' (корневые уставки) ----
-                macro_name = lib_path
-                macro_name_displayed = target_fb.get("Name", lib_path)
+                macro_display_name = lib_path
+                macro_name_for_fsu = target_fb.get("Name", lib_path)
 
                 for setting in target_fb.get("Settings", []):
                     setting_dict = setting.get("Setting", {})
-                    origin_data = setting_dict.get("OriginData")
+                    data = setting_dict.get("Data")
+                    if data is None:
+                        data = setting_dict.get("OriginData")
 
+                    # Извлекаем описание
                     description = ""
-                    if origin_data:
-                        desc_obj = origin_data.get("Description")
+                    if data is not None:
+                        desc_obj = data.get("Description")
                         if isinstance(desc_obj, dict):
                             description = desc_obj.get("Description", "")
                         elif isinstance(desc_obj, str):
@@ -169,27 +169,12 @@ class LIB500Manager:
                     if not description or description.strip() == "":
                         description = setting.get("Name", "")
 
-                    fsu_info = self.get_fsu_info_data(macro_name_displayed, description)
+                    fsu_info = self.get_fsu_info_data(macro_name_for_fsu, description)
                     name = r"\textcolor{red}{FullDescription НЕ НАЙДЕН!}"
                     if fsu_info:
                         name = fsu_info.get("FullDescription")
 
-                    # ---- Формируем запись для настройки (всегда) ----
-                    if origin_data is not None:
-                        setting_info = {
-                            "Name": name,
-                            "Unit": origin_data.get("Unit"),
-                            "Min": origin_data.get("Min"),
-                            "Max": origin_data.get("Max"),
-                            "Default": origin_data.get("LogicValue", {}).get("Origin"),
-                            "Step": origin_data.get("Step"),
-                            "Description": description,
-                            "IsConstant": origin_data.get("IsConstant"),
-                            "DataType": origin_data.get("DataType"),
-                            "PredefinedValues": get_PredefinedValues(origin_data.get("LogicValue")),
-                            "Id": origin_data.get("Id")
-                        }
-                    else:
+                    if data is None:
                         setting_info = {
                             "Name": name,
                             "Unit": None,
@@ -203,8 +188,22 @@ class LIB500Manager:
                             "PredefinedValues": None,
                             "Id": None
                         }
+                    else:
+                        setting_info = {
+                            "Name": name,
+                            "Unit": data.get("Unit"),
+                            "Min": data.get("Min"),
+                            "Max": data.get("Max"),
+                            "Default": data.get("LogicValue", {}).get("Origin"),
+                            "Step": data.get("Step"),
+                            "Description": description,
+                            "IsConstant": data.get("IsConstant"),
+                            "DataType": data.get("DataType"),
+                            "PredefinedValues": get_PredefinedValues(data.get("LogicValue")),
+                            "Id": data.get("Id")
+                        }
 
-                    macro_settings[macro_name].append(setting_info)
+                    macro_settings[macro_display_name].append(setting_info)
 
             # Формируем результат для текущего режима
             for macro_name, settings_list in macro_settings.items():
