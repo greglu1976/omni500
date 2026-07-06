@@ -10,8 +10,6 @@ from core.SettingBlanc2 import SettingBlanc
 
 from core.Manual import Manual
 
-from utils.xlsx2fbdata import process_all_xlsx_files
-
 class Application:
     def __init__(self):
 
@@ -28,13 +26,14 @@ class Application:
         ]
 
         self.init_button = None  # Будет хранить идентификатор кнопки
+        
+        # Переменная для хранения режима таблиц уставок
+        self.settings_table_mode = 1  # 1 - без общего описания, 2 - с общим описанием
+        
         self.setup_gui()
 
         self.load_config_callback()
 
-
-        self.re_ = None # УДАЛИТЬ ПОТОМ
-        self.sum_table_type = 2  # По умолчанию выбран тип 2
         
     def setup_gui(self):
         dpg.create_context()
@@ -50,7 +49,7 @@ class Application:
         
 
         # Главное окно
-        with dpg.window(label="Главное окно", width=400, height=450):
+        with dpg.window(label="Главное окно", width=400, height=550):
            
             # Сохраняем идентификатор комбобокса
             self.device_combo = dpg.add_combo(
@@ -70,7 +69,20 @@ class Application:
             #)
 
             dpg.add_separator() 
-            dpg.add_spacer(height=5)             
+            dpg.add_spacer(height=5)
+            
+            # Добавляем радиокнопки для выбора режима
+            dpg.add_text("Режим генерации таблиц уставок:")
+            dpg.add_radio_button(
+                items=["Без общего описания", "С общим описанием"],
+                default_value=0,  # По умолчанию выбран первый вариант
+                callback=self.settings_mode_callback,
+                tag="settings_mode_radio",
+                horizontal=True
+            )
+            dpg.add_spacer(height=5)
+            dpg.add_separator() 
+            dpg.add_spacer(height=5)            
             dpg.add_button(label="Создать бланк уставок в docx", callback=self.generate_setting_blanc_docx, width=300)
             dpg.add_spacer(height=5)
             dpg.add_separator() 
@@ -111,11 +123,22 @@ class Application:
 
         Logger.set_container("log_content", "log_window")
         
-        dpg.create_viewport(title="OMNI-500 v.0.0.4  01.07.26", width=1215, height=450)
+        dpg.create_viewport(title="OMNI-500 v.0.0.5  06.07.26", width=1215, height=550)
         dpg.setup_dearpygui()
 
 
     #################################### CALLBACKS ######################################
+
+    def settings_mode_callback(self, sender, app_data):
+        """Обработчик изменения режима таблиц уставок"""
+        # app_data - это строка с текстом выбранного элемента
+        if app_data == "Без общего описания":
+            self.settings_table_mode = 1
+            mode_name = "без общего описания"
+        else:  # "С общим описанием"
+            self.settings_table_mode = 2
+            mode_name = "с общим описанием"
+        Logger.info(f"Выбран режим таблиц уставок: {mode_name}")
 
     def renew_abbrs_ru(self):
         if not self.is_device_selected():
@@ -164,9 +187,13 @@ class Application:
             return
         if self.device_data is None:
             self.init_device_data()
+        
+        # Передаем режим в метод renew_setting_tables_re
         manual = Manual(device_data=self.device_data)
-        manual.renew_setting_tables_re()
-        Logger.info('Таблицы с уставками в РЭ обновлены') # TODO добавить контроль обновления, если нет обновлений то другое сообщение
+        manual.renew_setting_tables_re(mode=self.settings_table_mode)
+        
+        mode_text = "без общего описания" if self.settings_table_mode == 1 else "с общим описанием"
+        Logger.info(f'Таблицы с уставками в РЭ обновлены (режим: {mode_text})')
 #################################################################################################
 
     def renew_sum_table_latex(self):

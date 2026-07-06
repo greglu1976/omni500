@@ -11,6 +11,8 @@ from logger.logger import Logger
 from core.LIB500Manager import LIB500Manager
 from core.FBData import FBData
 
+from core.macros import SETTINGS_MACROS_CONTENT_FIVE, SETTINGS_MACROS_CONTENT_SIX
+
 class Manual:
     def __init__(self, device_data):
         self.device_data = device_data
@@ -78,8 +80,67 @@ class Manual:
     ###### Метод для обновления таблиц уставок в РЭ #########
     #########################################################
 
+    def get_default_from_enum(self, default, predifined_values):
+        """
+        Возвращает значение по индексу из списка предопределенных значений.
+        
+        Args:
+            default: индекс (int), например 0 или 1
+            predifined_values: строка значений, разделенных '\\\\', например "Нет \\\\ Да"
+        
+        Returns:
+            Значение по индексу default из списка
+        """
+        # Разделяем строку по разделителю '\\\\'
+        values = [v.strip() for v in predifined_values.split('\\\\')]
+        
+        # Возвращаем значение по индексу
+        if 0 <= default < len(values):
+            return values[default]
+        
+        return None
 
     def _render_latex_settings_block(self, settings_data):
+
+        table = []
+        for data in settings_data:
+            if data["MacroBlock"]!='-':
+                head_latex = '\multicolumn{5}{|c|}{ ' + data["MacroBlock"].replace('_', r'\_') + ' } \\\\ \hline \n'
+                table.append(head_latex)            
+            for setting in data["Settings"]:
+                str_ = '\\raggedright '
+                str_ += str(setting["Description"]) # было Name
+                str_ += ' & \centering '
+                if setting["PredefinedValues"]=='':
+                    ############# Форматирование Min и Max к требуемому виду в РЭ ####################
+                    Min=FBData._format_by_step(FBData,setting["Min"],setting["Step"]).replace('.',',') 
+                    Max=FBData._format_by_step(FBData,setting["Max"],setting["Step"]).replace('.',',')
+                    Default_val=FBData._format_by_step(FBData,setting["Default"],setting["Step"]).replace('.',',')
+                    ##################################################################################
+                    str_ += f'{str(Min)} ... {str(Max)}'
+                    str_ += ' & \centering '
+                    str_ += str(setting["Unit"])
+                    str_ += ' & \centering '
+                    str_ += str(setting["Step"]).replace('.',',')
+                    str_ += ' & \centering \\arraybackslash '
+                    str_ += str(Default_val)                   
+                else:
+                    str_ += str(setting["PredefinedValues"])
+                    str_ += ' & \centering '
+                    str_ += str("---")
+                    str_ += ' & \centering '
+                    str_ += str("---")                    
+                    str_ += ' & \centering \\arraybackslash '
+                    str_ += str(self.get_default_from_enum(setting["Default"], setting["PredefinedValues"]))
+                str_ += ' \\\\\n'  # Закрываем строку таблицы и переносим строку
+                table.append(str_)  # Добавляем строку таблицы
+                table.append('\\hline\n')  # Добавляем \hline отдельным элементом
+        return table
+
+
+
+    def _render_latex_settings_blockOLDOLD(self, settings_data): # Метод с пятью столбцами с полным обозначением уставки
+
         table = []
         for data in settings_data:
             if data["MacroBlock"]!='-':
@@ -139,9 +200,46 @@ class Manual:
 
 
 ##########################################################################################
+#########################################################################################
 
+    def change_table_settings_headers(self):
+        """
+        Перезаписывает файл макросов по пути self.macros_path в зависимости от self.mode.
+        """
+        if not hasattr(self, 'macros_path') or not hasattr(self, 'mode'):
+            Logger.error("Ошибка: macros_path или mode не установлены.")
+            return
 
-    def renew_setting_tables_re(self):
+        # Выбираем контент
+        if self.mode == 1:
+            content = SETTINGS_MACROS_CONTENT_FIVE
+        elif self.mode == 2:
+            content = SETTINGS_MACROS_CONTENT_SIX
+        else:
+            Logger.warning(f"Неизвестный mode: {self.mode}. Пропуск.")
+            return
+
+        try:
+            # Оптимизация: проверяем, нужно ли вообще писать
+            need_write = True
+            if os.path.exists(self.macros_path):
+                with open(self.macros_path, 'r', encoding='utf-8') as f:
+                    if f.read() == content:
+                        need_write = False
+
+            if need_write:
+                with open(self.macros_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                Logger.info(f"Макросы обновлены (mode={self.mode}): {self.macros_path}")
+            else:
+                Logger.info(f"Макросы актуальны (mode={self.mode}).")
+
+        except Exception as e:
+            Logger.error(f"Ошибка записи макросов: {e}", exc_info=True)
+
+    def renew_setting_tables_re(self, mode):
+
+        self.mode = mode
         start_tag_prefix = '%===m>'
         end_tag = '%===m\n'
 
@@ -154,6 +252,8 @@ class Manual:
             return
         path_to_desc = path_to_desc.rstrip('/\\')   
         self.paths = [path_to_desc + "/Приложение. Уставки/_latex/appset.tex",] # Перезаписываем self.paths одной строкой пути к файлу settings в приложении Уставки
+        self.macros_path = path_to_desc + "/Приложение. Уставки/_latex/settings_macros.tex"
+        self.change_table_settings_headers()
 
         for path in self.paths:
             if not os.path.exists(path):
