@@ -137,9 +137,7 @@ class Manual:
 
         return path_part, function_name
 
-
 ##########################################################################################
-
 
     def renew_setting_tables_re(self):
         start_tag_prefix = '%===m>'
@@ -254,7 +252,7 @@ class Manual:
 
     def renew_sum_table_latex(self):
         
-        path_to_appA_tex = Path(self.device_data["path_to_latex_desc"]) / "Приложение А. Сигналы" / "_latex" / "app1.tex"
+        path_to_appA_tex = Path(self.device_data["path_to_latex_desc"]) / "Приложение. Сигналы" / "_latex" / "app1.tex"
         start_tag = '%===t2\n'
 
         if not os.path.exists(path_to_appA_tex):
@@ -315,7 +313,6 @@ class Manual:
         else:
             Logger.info(f"Изменений в файле нет: {path_to_appA_tex}")
 
-
     def prepare_structure(self):
         """Подготовка полной структуры данных для LaTeX рендера"""
         
@@ -367,7 +364,6 @@ class Manual:
             latex_structure.append(root_entry)
         
         return latex_structure
-
 
     ###################################################
     ### Генерация суммарной таблицы в формате LATEX ###
@@ -503,15 +499,6 @@ class Manual:
         Logger.info(path_to)
         start_abbr(path_to) 
         return 0
-
-
-
-
-
-
-
-
-
 
     def _render_latex_settings_blockOLD(self, settings_data, header):
         table = []

@@ -27,8 +27,6 @@ class LIB500Manager:
 
         return None
 
-
-
     def get_table_latex(self, lib_path, macroblock):
         # Загрузка JSON файла
         with open(self.path+'/meta.json', 'r', encoding='utf-8') as f:
@@ -215,12 +213,6 @@ class LIB500Manager:
         return all_results
 
 
-
-
-
-
-
-
 ########################## НЕ ДОРАБОТАННЫЕ, НЕ ПРОВЕРЕННЫЕ МЕТОДЫ №№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№№
 
 
@@ -368,10 +360,6 @@ def get_PredefinedValues(data, field='DisplayText', separator=' \\\ ', sort_by=N
         items = sorted(items, key=lambda x: x[sort_by])
     values = [item[field] for item in items if field in item]
     return separator.join(values)
-
-
-
-
 
 
 if __name__=="__main__":
