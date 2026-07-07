@@ -81,23 +81,23 @@ class Manual:
     #########################################################
 
     def get_default_from_enum(self, default, predifined_values):
-        """
-        Возвращает значение по индексу из списка предопределенных значений.
-        
-        Args:
-            default: индекс (int), например 0 или 1
-            predifined_values: строка значений, разделенных '\\\\', например "Нет \\\\ Да"
-        
-        Returns:
-            Значение по индексу default из списка
-        """
-        # Разделяем строку по разделителю '\\\\'
+        # Проверка, что predifined_values — строка
+        if not isinstance(predifined_values, str):
+            return None  # или raise TypeError
+
+        # Если default — булево, интерпретируем как отсутствие выбора
+        if isinstance(default, bool):
+            return None
+
+        # Проверка, что default — целое число
+        if not isinstance(default, int):
+            return None
+
         values = [v.strip() for v in predifined_values.split('\\\\')]
-        
-        # Возвращаем значение по индексу
+
         if 0 <= default < len(values):
             return values[default]
-        
+
         return None
 
     def _render_latex_settings_block(self, settings_data):
