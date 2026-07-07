@@ -123,7 +123,7 @@ class Manual:
                         str_ += ' & \centering '
                         str_ += str(setting["Step"]).replace('.',',')
                         str_ += ' & \centering \\arraybackslash '
-                        str_ += str(Default_val)                   
+                        str_ += str(Default_val) if Default_val else r"\textcolor{red}{Параметр не найден}"                  
                     else:
                         str_ += str(setting["PredefinedValues"]) if setting["PredefinedValues"] else r"\textcolor{red}{Параметр не найден}"
                         str_ += ' & \centering '
@@ -131,7 +131,8 @@ class Manual:
                         str_ += ' & \centering '
                         str_ += str("---")                    
                         str_ += ' & \centering \\arraybackslash '
-                        str_ += str(self.get_default_from_enum(setting["Default"], setting["PredefinedValues"]))
+                        sstr = str(self.get_default_from_enum(setting["Default"], setting["PredefinedValues"]))
+                        str_ += sstr if sstr else r"\textcolor{red}{Параметр не найден}" 
                     str_ += ' \\\\\n'  # Закрываем строку таблицы и переносим строку
                     table.append(str_)  # Добавляем строку таблицы
                     table.append('\\hline\n')  # Добавляем \hline отдельным элементом
