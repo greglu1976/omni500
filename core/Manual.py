@@ -101,43 +101,84 @@ class Manual:
         return None
 
     def _render_latex_settings_block(self, settings_data):
+        def table5cols():
+            table = []
+            for data in settings_data:
+                if data["MacroBlock"]!='-':
+                    head_latex = '\multicolumn{5}{|c|}{ ' + data["MacroBlock"].replace('_', r'\_') + ' } \\\\ \hline \n'
+                    table.append(head_latex)            
+                for setting in data["Settings"]:
+                    str_ = '\\centering '
+                    str_ += str(setting["Description"]) # было Name
+                    str_ += ' & \centering '
+                    if setting["PredefinedValues"]=='':
+                        ############# Форматирование Min и Max к требуемому виду в РЭ ####################
+                        Min=FBData._format_by_step(FBData,setting["Min"],setting["Step"]).replace('.',',') 
+                        Max=FBData._format_by_step(FBData,setting["Max"],setting["Step"]).replace('.',',')
+                        Default_val=FBData._format_by_step(FBData,setting["Default"],setting["Step"]).replace('.',',')
+                        ##################################################################################
+                        str_ += f'{str(Min)} ... {str(Max)}'
+                        str_ += ' & \centering '
+                        str_ += str(setting["Unit"])
+                        str_ += ' & \centering '
+                        str_ += str(setting["Step"]).replace('.',',')
+                        str_ += ' & \centering \\arraybackslash '
+                        str_ += str(Default_val)                   
+                    else:
+                        str_ += str(setting["PredefinedValues"])
+                        str_ += ' & \centering '
+                        str_ += str("---")
+                        str_ += ' & \centering '
+                        str_ += str("---")                    
+                        str_ += ' & \centering \\arraybackslash '
+                        str_ += str(self.get_default_from_enum(setting["Default"], setting["PredefinedValues"]))
+                    str_ += ' \\\\\n'  # Закрываем строку таблицы и переносим строку
+                    table.append(str_)  # Добавляем строку таблицы
+                    table.append('\\hline\n')  # Добавляем \hline отдельным элементом
+            return table
 
-        table = []
-        for data in settings_data:
-            if data["MacroBlock"]!='-':
-                head_latex = '\multicolumn{5}{|c|}{ ' + data["MacroBlock"].replace('_', r'\_') + ' } \\\\ \hline \n'
-                table.append(head_latex)            
-            for setting in data["Settings"]:
-                str_ = '\\raggedright '
-                str_ += str(setting["Description"]) # было Name
-                str_ += ' & \centering '
-                if setting["PredefinedValues"]=='':
-                    ############# Форматирование Min и Max к требуемому виду в РЭ ####################
-                    Min=FBData._format_by_step(FBData,setting["Min"],setting["Step"]).replace('.',',') 
-                    Max=FBData._format_by_step(FBData,setting["Max"],setting["Step"]).replace('.',',')
-                    Default_val=FBData._format_by_step(FBData,setting["Default"],setting["Step"]).replace('.',',')
-                    ##################################################################################
-                    str_ += f'{str(Min)} ... {str(Max)}'
+        def table6cols():
+            table = []
+            for data in settings_data:
+                if data["MacroBlock"]!='-':
+                    head_latex = '\multicolumn{6}{|c|}{ ' + data["MacroBlock"].replace('_', r'\_') + ' } \\\\ \hline \n'
+                    table.append(head_latex)            
+                for setting in data["Settings"]:
+                    str_ = '\\raggedright '
+                    str_ += str(setting["Name"])                    
+                    str_ += '& \centering '
+                    str_ += str(setting["Description"]) # было Name
                     str_ += ' & \centering '
-                    str_ += str(setting["Unit"])
-                    str_ += ' & \centering '
-                    str_ += str(setting["Step"]).replace('.',',')
-                    str_ += ' & \centering \\arraybackslash '
-                    str_ += str(Default_val)                   
-                else:
-                    str_ += str(setting["PredefinedValues"])
-                    str_ += ' & \centering '
-                    str_ += str("---")
-                    str_ += ' & \centering '
-                    str_ += str("---")                    
-                    str_ += ' & \centering \\arraybackslash '
-                    str_ += str(self.get_default_from_enum(setting["Default"], setting["PredefinedValues"]))
-                str_ += ' \\\\\n'  # Закрываем строку таблицы и переносим строку
-                table.append(str_)  # Добавляем строку таблицы
-                table.append('\\hline\n')  # Добавляем \hline отдельным элементом
-        return table
+                    if setting["PredefinedValues"]=='':
+                        ############# Форматирование Min и Max к требуемому виду в РЭ ####################
+                        Min=FBData._format_by_step(FBData,setting["Min"],setting["Step"]).replace('.',',') 
+                        Max=FBData._format_by_step(FBData,setting["Max"],setting["Step"]).replace('.',',')
+                        Default_val=FBData._format_by_step(FBData,setting["Default"],setting["Step"]).replace('.',',')
+                        ##################################################################################
+                        str_ += f'{str(Min)} ... {str(Max)}'
+                        str_ += ' & \centering '
+                        str_ += str(setting["Unit"])
+                        str_ += ' & \centering '
+                        str_ += str(setting["Step"]).replace('.',',')
+                        str_ += ' & \centering \\arraybackslash '
+                        str_ += str(Default_val)                   
+                    else:
+                        str_ += str(setting["PredefinedValues"])
+                        str_ += ' & \centering '
+                        str_ += str("---")
+                        str_ += ' & \centering '
+                        str_ += str("---")                    
+                        str_ += ' & \centering \\arraybackslash '
+                        str_ += str(self.get_default_from_enum(setting["Default"], setting["PredefinedValues"]))
+                    str_ += ' \\\\\n'  # Закрываем строку таблицы и переносим строку
+                    table.append(str_)  # Добавляем строку таблицы
+                    table.append('\\hline\n')  # Добавляем \hline отдельным элементом
+            return table
 
-
+        if self.mode == 1:
+            return table5cols()
+        else:
+            return table6cols() 
 
     def _render_latex_settings_blockOLDOLD(self, settings_data): # Метод с пятью столбцами с полным обозначением уставки
 

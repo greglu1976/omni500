@@ -29,22 +29,22 @@ SETTINGS_MACROS_CONTENT_FIVE = r"""% ===========================================
 """
 
 SETTINGS_MACROS_CONTENT_SIX = r"""% ============================================
-% МАКРОС ДЛЯ 6 СТОЛБЦОВ
+% МАКРОС ДЛЯ 6 СТОЛБЦОВ (с жесткой шапкой)
 % ============================================
-\newcommand{\startTable}[3]{%
+\newcommand{\startTable}[2]{%
     \footnotesize
-    \begin{longtable}{|>{\centering\arraybackslash}m{4.0cm}|>{\centering\arraybackslash}m{3.0cm}|>{\centering\arraybackslash}m{3.0cm}|>{\centering\arraybackslash}m{2.0cm}|>{\centering\arraybackslash}m{2.0cm}|>{\centering\arraybackslash}m{1.5cm}|}
+    \begin{longtable}{|>{\centering\arraybackslash}m{4.0cm}|>{\centering\arraybackslash}m{3.0cm}|>{\centering\arraybackslash}m{3.0cm}|>{\centering\arraybackslash}m{1.8cm}|>{\centering\arraybackslash}m{1.8cm}|>{\centering\arraybackslash}m{1.9cm}|}
     \caption{#1\hfill\vspace{-0.5\baselineskip}}\label{#2}\\
     \hline
     \rowcolor{gray!20}
-    #3 \\
+    Описание & Наименование уставки & Значение/Диапазон & Единица измерения & Шаг & Значение по умолчанию\\
     \hline
     \endfirsthead
     %
     \caption*{\hspace{3pt}\emph{Продолжение таблицы \ref{#2}\hfill\vspace{-0.5\baselineskip}}} \\
     \hline
     \rowcolor{gray!20}
-    #3 \\
+    Описание & Наименование уставки & Значение/Диапазон & Единица измерения & Шаг & Значение по умолчанию\\
     \hline
     \endhead
 }
@@ -52,7 +52,7 @@ SETTINGS_MACROS_CONTENT_SIX = r"""% ============================================
 % ============================================
 % ОБЩИЙ МАКРОС ДЛЯ ЗАКРЫТИЯ
 % ============================================
-\newcommand{\stopLongTable}{%
+\newcommand{\stopTable}{%
     \end{longtable}%
     \normalsize
 }
