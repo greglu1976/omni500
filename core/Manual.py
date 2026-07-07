@@ -125,7 +125,7 @@ class Manual:
                         str_ += ' & \centering \\arraybackslash '
                         str_ += str(Default_val)                   
                     else:
-                        str_ += str(setting["PredefinedValues"])
+                        str_ += str(setting["PredefinedValues"]) if setting["PredefinedValues"] else r"\textcolor{red}{Параметр не найден}"
                         str_ += ' & \centering '
                         str_ += str("---")
                         str_ += ' & \centering '
