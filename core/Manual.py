@@ -86,8 +86,8 @@ class Manual:
             return None  # или raise TypeError
 
         # Если default — булево, интерпретируем как отсутствие выбора
-        if isinstance(default, bool):
-            return None
+        #if isinstance(default, bool):
+            #return None
 
         # Проверка, что default — целое число
         if not isinstance(default, int):
