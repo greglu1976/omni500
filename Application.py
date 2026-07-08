@@ -210,7 +210,8 @@ class Application:
 
     def gen_raw_latex(self):
 
-        Logger.info('Пытаемся создать единый файл latex')
+        Logger.info('Создание единого файл latex')
+        Logger.warning('Не обрабатывает циклы latex, например в приложении ФСУ. Нужно доработать...')
 
         if not self.is_device_selected():
             Logger.warning('Устройство не выбрано')
