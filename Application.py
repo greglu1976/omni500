@@ -10,6 +10,9 @@ from core.SettingBlanc2 import SettingBlanc
 
 from core.Manual import Manual
 
+from core.LatexDoc import LatexDoc
+from utils.additional import create_directories, save_obj, load_obj
+
 class Application:
     def __init__(self):
 
@@ -111,8 +114,8 @@ class Application:
             dpg.add_spacer(height=5) 
 
             dpg.add_button(
-                label="Занести xlsx из папки db в базу SQLite",
-                callback=self.add_to_sqlite,
+                label="Собрать в один файл latex (raw.tex)",
+                callback=self.gen_raw_latex,
                 width=300
             )
 
@@ -123,7 +126,7 @@ class Application:
 
         Logger.set_container("log_content", "log_window")
         
-        dpg.create_viewport(title="OMNI-500 v.0.0.5  06.07.26", width=1215, height=550)
+        dpg.create_viewport(title="OMNI-500 v.0.0.6  08.07.26", width=1215, height=550)
         dpg.setup_dearpygui()
 
 
@@ -166,8 +169,6 @@ class Application:
         Logger.info('Перечень сокращений в РЭ обновлен')
 ############################################################################################################
 
-
-
     def generate_setting_blanc_docx(self):
         if not self.is_device_selected():
             Logger.warning('Устройство не выбрано')
@@ -207,8 +208,25 @@ class Application:
         Logger.info('Суммарная таблица сигналов приложения в РЭ обновлена')
 
 
-    def add_to_sqlite(self): # DEPRECATED
-        Logger.info('Зарезервировано на будущее')
+    def gen_raw_latex(self):
+
+        Logger.info('Создание единого файл latex')
+        Logger.warning('Не обрабатывает циклы latex, например в приложении ФСУ. Нужно доработать...')
+
+        if not self.is_device_selected():
+            Logger.warning('Устройство не выбрано')
+            return
+        if self.device_data is None:
+            self.init_device_data()
+
+        create_directories()
+        # Сохраняем в файл объект РЭ
+        #save_obj(self.re_)
+
+        path =self.device_data["path_to_latex_desc"] + '/_manual_latex'
+
+        LatexDoc(path)
+        Logger.info('Проект latex для РЭ создан. См. папку latex_build')        
         #process_all_xlsx_files("db")
         #Logger.info('Задача обновления БД завершена')
 
