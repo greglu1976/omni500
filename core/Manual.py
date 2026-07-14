@@ -105,7 +105,7 @@ class Manual:
             table = []
             for data in settings_data:
                 if data["MacroBlock"]!='-':
-                    head_latex = '\multicolumn{5}{|c|}{ ' + data["MacroBlock"].replace('_', r'\_') + ' } \\\\ \hline \n'
+                    head_latex = '\\rowcolor{gray!20} \multicolumn{5}{|c|}{ ' + data["MacroBlock"].replace('_', r'\_') + ' } \\\\ \hline \n'
                     table.append(head_latex)            
                 for setting in data["Settings"]:
                     str_ = '\\centering '
@@ -142,7 +142,7 @@ class Manual:
             table = []
             for data in settings_data:
                 if data["MacroBlock"]!='-':
-                    head_latex = '\multicolumn{6}{|c|}{ ' + data["MacroBlock"].replace('_', r'\_') + ' } \\\\ \hline \n'
+                    head_latex = '\\rowcolor{gray!20} \multicolumn{6}{|c|}{ ' + data["MacroBlock"].replace('_', r'\_') + ' } \\\\ \hline \n'
                     table.append(head_latex)            
                 for setting in data["Settings"]:
                     str_ = '\\raggedright '
