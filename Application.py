@@ -59,7 +59,8 @@ class Application:
                 label="Устройство",
                 items=[],
                 width=300,
-                enabled=False
+                enabled=False,
+                callback=self.on_device_selected
             )
             dpg.add_spacer(height=5)
 
@@ -126,11 +127,32 @@ class Application:
 
         Logger.set_container("log_content", "log_window")
         
-        dpg.create_viewport(title="OMNI-500 v.0.0.6  08.07.26", width=1215, height=550)
+        dpg.create_viewport(title="OMNI-500 v.0.0.7  17.07.26", width=1215, height=550)
         dpg.setup_dearpygui()
 
 
     #################################### CALLBACKS ######################################
+
+    def on_device_selected(self, sender, app_data):
+        """Обработчик выбора устройства из комбобокса"""
+        # Сбрасываем старые данные устройства при выборе нового
+        self.device_data = None
+        self.device = None
+        #Logger.info(f"Выбрано новое устройство. Данные будут загружены при необходимости.")
+        if app_data:
+            # Извлекаем имя устройства из строки вида "Устройство: XXX, Версия: YYY"
+            try:
+                # Разбиваем строку по запятой и берем первую часть
+                device_name_part = app_data.split(',')[0]  # "Устройство: XXX"
+                device_name = device_name_part.split(':')[1].strip()  # "XXX"
+                Logger.info(f"Выбрано новое устройство: {device_name}")
+            except:
+                Logger.info(f"Выбрано новое устройство: {app_data}")
+        else:
+            Logger.info("Выбор устройства сброшен")      
+        # Можно сразу загрузить данные нового устройства
+        #self.init_device_data()
+
 
     def settings_mode_callback(self, sender, app_data):
         """Обработчик изменения режима таблиц уставок"""
