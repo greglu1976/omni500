@@ -396,7 +396,7 @@ class Manual:
 
     def renew_sum_table_latex(self):
         
-        path_to_appA_tex = Path(self.device_data["path_to_latex_desc"]) / "Приложение А. Сигналы" / "_latex" / "app1.tex"
+        path_to_appA_tex = Path(self.device_data["path_to_latex_desc"]) / "Приложение. Сигналы" / "_latex" / "app1.tex"
         start_tag = '%===t2\n'
 
         if not os.path.exists(path_to_appA_tex):
