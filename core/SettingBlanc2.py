@@ -9,7 +9,7 @@ from docxtpl import DocxTemplate
 from docx import Document
 
 from utils.docx_handler import add_new_section, add_new_section_landscape
-from utils.tables import add_table_final, add_table_settings_core4, add_table_mtrx_ins_core4, add_table_mtrx_outs_core4, add_table_leds_new_core4, add_table_fks_core4, add_table_binaries_core4, add_table_reg_core4
+from utils.tables import add_table_final, add_table_settings_core4, add_table_mtrx_ins_core4, add_table_mtrx_outs_core4, add_table_leds_new_core4, add_table_fks_core4, add_table_binaries_core4, add_table_reg_core4, add_table_settings_core4_simple
 
 from xml.sax.saxutils import escape # для экранирования в дропдаун списке всяких << >>
 
@@ -17,9 +17,13 @@ from docxtpl import DocxTemplate
 
 from logger.logger import Logger
 
+from docx.shared import RGBColor # Добавьте этот импорт в начало файла
+
 from docx.shared import Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 
+from core.Manual import Manual # Импорт вашего класса Manual
+from core.FBData import FBData  # <--- ОБЯЗАТЕЛЬНО ДОБАВИТЬ
 
 class SettingBlanc:
     def __init__(self, device_data):
@@ -31,122 +35,182 @@ class SettingBlanc:
         self.versions = self.device_data["versions"]
         self.base_structure = None  # Будет хранить структуру из get_all_settings()
 
-        #self.extension_handler = ExtensionHandler(packet_path) # Для раздела конфигурация оттуда берутся перечисления
-        #self.config_handler = MainConfigHandler.from_json_file(packet_path + "meta.json")
-        #self.order_handler = OrderHandler(self.config_handler, self.extension_handler, packet_path)
+        # Создаем экземпляр Manual для использования его движка данных
+        self.manual_engine = Manual(device_data)
 
-        #self.di_list = []
-        #self.maps = self.order_handler.get_mapping()
-        #with open("abbr.json", 'r', encoding='utf-8') as f:
-            #self.abbr_dict = json.load(f)
         
 
-    # НОВАЯ ФУНКЦИЯ ДЛЯ CORE4
-    def _create_section_settings_core4(self, doc):
-        """Генерирует раздел уставок для Core4 с таблицами как в Core3"""
-        if not self.base_structure:
-            Logger.warning("Нет данных base_structure для генерации уставок")
-            return
+    def _create_section_settings_core4(self, doc, mode=2):
+        """
+        Генерирует раздел уставок.
+        mode=6: Полный формат (№, Name, Description, Range, Unit, Step, Default)
+        mode=5: Сокращенный формат (№, Description[as Name], Range, Unit, Step, Default) - аналог table5cols
+        """
 
         add_new_section_landscape(doc)
-        
-        # Основной заголовок
         p = doc.add_paragraph('УСТАВКИ РЗиА')
         p.style = 'ДОК Заголовок 1'
 
-        for info in self.base_structure:
-            # --- ШАГ 1: Проверяем, нужно ли вообще выводить этот блок ---
-            
-            # 1. Проверяем уставки в самом корневом блоке
-            has_root_settings = False
-            if info.get("variables"):
-                has_root_settings = any(
-                    var.get("Comment") in ["RTE_INPUT;RTE_SETTING", "RTE_SETTING"] 
-                    for var in info["variables"]
-                )
-            
-            # 2. Проверяем уставки в дочерних блоках
-            has_child_settings = False
-            if info.get("children"):
-                for child in info["children"]:
-                    if child.get("variables"):
-                        if any(var.get("Comment") == "RTE_INPUT;RTE_SETTING" for var in child["variables"]):
-                            has_child_settings = True
-                            break
-            
-            # Если нет уставок ни в корне, ни в детях — пропускаем весь блок
-            if not has_root_settings and not has_child_settings:
-                continue
+        Logger.info(f"Запрос структурированных данных уставок через Manual (mode={mode})...")
+        
+        # Создаем помощник для форматирования чисел
+        fb_helper = FBData({}) 
+        
+        # Получаем данные
+        structured_data = self.manual_engine.get_all_settings_structured()
+        
+        if not structured_data:
+            Logger.warning("Нет данных уставок от Manual.")
+            return
 
-            # --- ШАГ 2: Выводим заголовок родительского блока (так как данные есть) ---
-            header = info["display_name"]
-            p = doc.add_paragraph(header)
-            p.style = 'ДОК Заголовок 2'
-            
-            # --- ШАГ 3: Обрабатываем переменные корневого блока ---
-            if has_root_settings:
-                header2 = "Общие уставки блока"
-                p = doc.add_paragraph(header2)
-                p.style = 'ДОК Таблица Название'
-                
-                sets = []
-                for var in info["variables"]:
-                    if var.get("Comment") == "RTE_INPUT;RTE_SETTING":
-                        description = var.get("Description", {})
-                        full_description = description.get("FullDescription", "") if isinstance(description, dict) else ""
-                        desc_text = description.get("Description", "")
-                        min_val = description.get("Min", "")                            
-                        max_val = description.get("Max", "")
-                        step = description.get("Step", "")
-                        default = description.get("DefaultValue", "")
-                        units = description.get("Units", "")
+        total_rows = 0
 
-                        row = (full_description, desc_text, min_val, max_val, units, step, default)
-                        sets.append(row)
+        for block in structured_data:
+            for group in block["settings_groups"]:
+                if group["MacroBlock"] != '-':
+                     p_group = doc.add_paragraph(group["MacroBlock"])
+                     p_group.style = 'ДОК Таблица Название'
 
-                if sets: # Дополнительная проверка перед созданием таблицы
+                # Создаем таблицу. 
+                # ВАЖНО: Убедитесь, что add_table_settings_core4 создает таблицу 
+                # с правильным количеством заголовков для выбранного режима.
+                # Если функция одна и та же, она должна создавать универсальную структуру.
+                if mode == 1:
+                    table = add_table_settings_core4_simple(doc)
+                else:
                     table = add_table_settings_core4(doc)
-                    self._fill_table_settings(table, sets)
 
-            # --- ШАГ 4: Обрабатываем переменные дочерних блоков ---
-            if info["children"]:
-                for child in info["children"]:
-                    # Проверяем наличие уставок в конкретном ребенке
-                    child_has_settings = False
-                    if child.get("variables"):
-                        for var in child["variables"]:
-                            if var.get("Comment") == "RTE_INPUT;RTE_SETTING":
-                                child_has_settings = True
-                                break
+                local_row_index = 1 # Сброс нумерации для каждой таблицы/группы
+
+                for setting in group["Settings"]:
+                    row = table.add_row()
+                    total_rows += 1
                     
-                    # Выводим заголовок ребенка и таблицу только если есть уставки
-                    if child_has_settings:
-                        child_header = child["display_name"]
-                        p = doc.add_paragraph(child_header)
-                        p.style = 'ДОК Таблица Название'
+                    # --- ЗАПОЛНЕНИЕ ЯЧЕЕК В ЗАВИСИМОСТИ ОТ РЕЖИМА ---
+                    
+                    # 1. Номер (всегда в ячейке 0)
+                    row.cells[0].text = str(local_row_index)
+                    row.cells[0].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+                    if mode == 2:
+                        # === РЕЖИМ 6 КОЛОНОК (ПОЛНЫЙ) ===
                         
-                        sets = []
-                        for var in child["variables"]:
-                            if var.get("Comment") == "RTE_INPUT;RTE_SETTING":
-                                description = var.get("Description", {})
-                                full_description = description.get("FullDescription", "") if isinstance(description, dict) else ""
-                                desc_text = description.get("Description", "")
-                                min_val = description.get("Min", "")                            
-                                max_val = description.get("Max", "")
-                                step = description.get("Step", "")
-                                default = description.get("DefaultValue", "")
-                                units = description.get("Units", "")
-                                
-                                row = (full_description, desc_text, min_val, max_val, units, step, default)
-                                sets.append(row)
+                        # 2. Наименование (Name) - ячейка 1
+                        self._set_cell_with_color(row.cells[1], setting["Name"])
+
+                        # 3. Описание (Description) - ячейка 2
+                        self._set_cell_with_color(row.cells[2], setting["Description"])
+
+                        # Остальные данные
+                        min_val = fb_helper._format_by_step(setting["Min"], setting["Step"]).replace('.', ',')
+                        max_val = fb_helper._format_by_step(setting["Max"], setting["Step"]).replace('.', ',')
+                        predefined = setting.get("PredefinedValues", "")
                         
-                        if sets:
-                            table = add_table_settings_core4(doc)
-                            self._fill_table_settings(table, sets)
+                        if predefined:
+                            range_text = predefined.replace('\\\\', ' / ')
+                            default_text = self._get_default_from_enum_safe(setting["Default"], predefined)
+                            unit_text = "-"
+                            step_text = "-"
+                        else:
+                            range_text = f"{min_val} ... {max_val}"
+                            default_val = fb_helper._format_by_step(setting["Default"], setting["Step"]).replace('.', ',')
+                            default_text = default_val if default_val else ""
+                            unit_text = setting.get("Unit", "-")
+                            step_text = str(setting["Step"]).replace('.', ',')
 
-        return
+                        # 4. Диапазон - ячейка 3
+                        row.cells[3].text = range_text
+                        row.cells[3].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+                        # 5. Ед. изм. - ячейка 4
+                        row.cells[4].text = unit_text
+                        row.cells[4].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+                        # 6. Шаг - ячейка 5
+                        row.cells[5].text = step_text
+                        row.cells[5].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+                        # 7. По умолчанию - ячейка 6
+                        row.cells[6].text = default_text
+                        row.cells[6].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+                    elif mode == 1:
+                        # === РЕЖИМ 5 КОЛОНОК (СОКРАЩЕННЫЙ, как в LaTeX table5cols) ===
+                        # Столбец "ПО ЮС" (Name) убираем. 
+                        # В столбец "Наименование" (ячейка 1) ставим Description.
+                        
+                        # 2. Наименование (берем Description) - ячейка 1
+                        self._set_cell_with_color(row.cells[1], setting["Description"])
+
+                        # Остальные данные те же
+                        min_val = fb_helper._format_by_step(setting["Min"], setting["Step"]).replace('.', ',')
+                        max_val = fb_helper._format_by_step(setting["Max"], setting["Step"]).replace('.', ',')
+                        predefined = setting.get("PredefinedValues", "")
+                        
+                        if predefined:
+                            range_text = predefined.replace('\\\\', ' / ')
+                            default_text = self._get_default_from_enum_safe(setting["Default"], predefined)
+                            unit_text = "-"
+                            step_text = "-"
+                        else:
+                            range_text = f"{min_val} ... {max_val}"
+                            default_val = fb_helper._format_by_step(setting["Default"], setting["Step"]).replace('.', ',')
+                            default_text = default_val if default_val else ""
+                            unit_text = setting.get("Unit", "-")
+                            step_text = str(setting["Step"]).replace('.', ',')
+
+                        # 3. Диапазон - ячейка 2 (сдвиг на 1 влево)
+                        row.cells[2].text = range_text
+                        row.cells[2].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+                        # 4. Ед. изм. - ячейка 3
+                        row.cells[3].text = unit_text
+                        row.cells[3].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+                        # 5. Шаг - ячейка 4
+                        row.cells[4].text = step_text
+                        row.cells[4].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+                        # 6. По умолчанию - ячейка 5
+                        row.cells[5].text = default_text
+                        row.cells[5].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                        
+                        # Если в таблице есть лишняя 6-я ячейка, очищаем её
+                        if len(row.cells) > 6:
+                            row.cells[6].text = ""
+
+                    # Установка шрифта для всех ячеек строки
+                    for cell in row.cells:
+                        for paragraph in cell.paragraphs:
+                            for run in paragraph.runs:
+                                run.font.size = Pt(10)
+                    
+                    local_row_index += 1
+
+        Logger.info(f"Сгенерировано {total_rows} строк уставок.")
+
+    def _set_cell_with_color(self, cell, text):
+        """Вспомогательный метод для установки текста с обработкой красного цвета"""
+        if "\\textcolor{red}" in text:
+            clean_text = text.replace("\\textcolor{red}{", "").rstrip("}")
+            cell.text = ""
+            run = cell.paragraphs[0].add_run(clean_text)
+            run.font.color.rgb = RGBColor(255, 0, 0)
+        else:
+            cell.text = text
 
 
+    def _get_default_from_enum_safe(self, default_index, predefined_values_str):
+        """Локальная копия или вызов метода из Manual"""
+        try:
+            if not isinstance(predefined_values_str, str) or not isinstance(default_index, int):
+                return ""
+            values = [v.strip() for v in predefined_values_str.split('\\\\')]
+            if 0 <= default_index < len(values):
+                return values[default_index]
+        except:
+            pass
+        return ""
 
 
     def _fill_table_settings(self, table, rows_data):
@@ -173,8 +237,26 @@ class SettingBlanc:
             row.cells[0].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
             
             # Ячейка 1 (ПО ЮС) - очищенное значение
-            row.cells[1].text = row_data[0]
+            #row.cells[1].text = row_data[0]
+
+
+            raw_text = row_data[0] # Или setting["Description"]
             
+            # Проверяем, является ли это специальной строкой ошибки LaTeX
+            if "\\textcolor{red}" in raw_text:
+                # Очищаем текст от LaTeX тегов
+                # Удаляем \textcolor{red}{ и последнюю }
+                clean_text = raw_text.replace("\\textcolor{red}{", "").rstrip("}")
+                
+                cell = row.cells[1]
+                cell.text = "" # Очищаем ячейку перед добавлением run
+                run = cell.paragraphs[0].add_run(clean_text)
+                run.font.color.rgb = RGBColor(255, 0, 0) # Красный цвет
+            else:
+                # Обычный текст
+                row.cells[1].text = raw_text
+
+
             # Ячейка 2 (ИЧМ) - значение из последних скобок (или пусто)
             row.cells[2].text = row_data[1]
             row.cells[2].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
@@ -317,7 +399,7 @@ class SettingBlanc:
 
 
 
-    def create_template(self):
+    def create_template(self, mode):
 
         # Загрузка вспомогательного файла, где находятится полное описание
         with open(self.packet_path+'/fsu-information.json', 'r', encoding='utf-8') as f:
@@ -374,7 +456,7 @@ class SettingBlanc:
         # Генерируем раздел уставок (новый метод)
         Logger.info("Создаем раздел Уставки РЗиА...")
 
-        self._create_section_settings_core4(doc)
+        self._create_section_settings_core4(doc, mode)
 
 
 
@@ -405,12 +487,12 @@ class SettingBlanc:
         
         return doc
 
-    def get_blanc(self):
+    def get_blanc(self, mode):
         """
         Основной метод для генерации бланка уставок Core4
         """
         #print(device_data)
-        self.create_template()
+        self.create_template(mode)
 
 
 ##################################################################################
@@ -670,6 +752,8 @@ class SettingBlanc:
         p.style = 'ДОК Заголовок 1'
 
         raw_data = self.order_handler.get_data_for_configuration()
+
+
 
         for datum in raw_data:
             if datum["main_title"] == "ИЧМ":

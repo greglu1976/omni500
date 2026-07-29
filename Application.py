@@ -127,7 +127,7 @@ class Application:
 
         Logger.set_container("log_content", "log_window")
         
-        dpg.create_viewport(title="OMNI-500 v.0.0.7hf2  29.07.26", width=1215, height=550)
+        dpg.create_viewport(title="OMNI-500 v.0.0.8  29.07.26", width=1215, height=550)
         dpg.setup_dearpygui()
 
 
@@ -199,7 +199,7 @@ class Application:
             self.init_device_data()
         Logger.info('Начинаем создавать бланк уставок в формате word...')
         setting_blanc = SettingBlanc(device_data=self.device_data)
-        setting_blanc.get_blanc()
+        setting_blanc.get_blanc(mode=self.settings_table_mode)
         #Logger.info('Бланк уставок в docx создан')
 
 

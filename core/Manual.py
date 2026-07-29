@@ -181,39 +181,6 @@ class Manual:
         else:
             return table6cols() 
 
-    def _render_latex_settings_blockOLDOLD(self, settings_data): # Метод с пятью столбцами с полным обозначением уставки
-
-        table = []
-        for data in settings_data:
-            if data["MacroBlock"]!='-':
-                head_latex = '\multicolumn{5}{|c|}{ ' + data["MacroBlock"].replace('_', r'\_') + ' } \\\\ \hline \n'
-                table.append(head_latex)            
-            for setting in data["Settings"]:
-                str_ = '\\raggedright '
-                str_ += str(setting["Name"])
-                str_ += ' & \centering '
-                str_ += str(setting["Description"])
-                str_ += ' & \centering '
-                if setting["PredefinedValues"]=='':
-                    ############# Форматирование Min и Max к требуемому виду в РЭ ####################
-                    Min=FBData._format_by_step(FBData,setting["Min"],setting["Step"]).replace('.',',') 
-                    Max=FBData._format_by_step(FBData,setting["Max"],setting["Step"]).replace('.',',')
-                    ##################################################################################
-                    str_ += f'{str(Min)} ... {str(Max)}'
-                    str_ += ' & \centering '
-                    str_ += str(setting["Unit"])
-                    str_ += ' & \centering \\arraybackslash '
-                    str_ += str(setting["Step"]).replace('.',',')
-                else:
-                    str_ += str(setting["PredefinedValues"])
-                    str_ += ' & \centering '
-                    str_ += str("---")
-                    str_ += ' & \centering \\arraybackslash '
-                    str_ += str("---")
-                str_ += ' \\\\\n'  # Закрываем строку таблицы и переносим строку
-                table.append(str_)  # Добавляем строку таблицы
-                table.append('\\hline\n')  # Добавляем \hline отдельным элементом
-        return table
 
 
     ##########################################################################
@@ -650,28 +617,86 @@ class Manual:
 
 
 
+    ##### WORD ####
 
+    def get_all_settings_structured(self):
+        """
+        Собирает все уставки со всех ФБ устройства в структурированный список.
+        """
+        # 1. Получаем путь к описанию из device_data
+        path_to_desc = self.device_data.get("path_to_latex_desc")
+        
+        if not path_to_desc:
+            Logger.error("Manual: path_to_latex_desc отсутствует в device_data")
+            return []
+            
+        # Нормализуем путь (убираем слеши в конце)
+        path_to_desc = path_to_desc.rstrip('/\\')
+        
+        # Формируем полный путь к файлу appset.tex
+        target_path = path_to_desc + "/Приложение. Уставки/_latex/appset.tex"
+        
+        Logger.info(f"Manual: Ищем файл уставок по пути: {target_path}")
 
+        if not os.path.exists(target_path):
+            Logger.error(f"Manual: Файл не найден: {target_path}")
+            return []
 
+        all_blocks_data = []
 
+        # 2. Читаем файл
+        try:
+            with open(target_path, 'r', encoding='utf-8') as f:
+                content = f.readlines()
+        except Exception as e:
+            Logger.error(f"Manual: Ошибка чтения файла {target_path}: {e}")
+            return []
 
-    def _render_latex_settings_blockOLD(self, settings_data, header):
-        table = []
-        if header is not None and header != "":
-            head_latex = '\multicolumn{5}{|c|}{ ' + header + ' } \\\\ \hline \n'
-            table.append(head_latex)
-        for row in settings_data:
-            str_ = '\centering '
-            str_ += row[0].replace('_', r'\_')
-            str_ += ' & \centering '
-            str_ += row[1].replace('-', r'--').replace('_', r'\_')
-            str_ += ' & \centering '
-            str_ += row[2].replace('\n', r'\\')
-            str_ += ' & \centering '
-            str_ += row[3].replace('-', r'--').replace('%', r'\%')
-            str_ += ' & \centering \\arraybackslash '
-            str_ += row[4].replace('-', r'--')
-            str_ += ' \\\\\n'  # Закрываем строку таблицы и переносим строку
-            table.append(str_)  # Добавляем строку таблицы
-            table.append('\\hline\n')  # Добавляем \hline отдельным элементом
-        return table
+        # 3. Парсим теги %===m> ... %===m
+        start_tag_prefix = '%===m>'
+        end_tag = '%===m\n'
+        
+        i = 0
+        while i < len(content):
+            line = content[i]
+            if line.startswith(start_tag_prefix):
+                # Парсим тег для получения lib_path и macroblock
+                lib_path, macroblock = self._parse_start_tag(line)
+                
+               
+                # Получаем данные через LIB500Manager
+                settings_data = self.meta_manager.get_table_latex(lib_path, macroblock)
+                
+                if settings_data:
+                    all_blocks_data.append({
+                        "lib_path": lib_path,
+                        "macroblock": macroblock,
+                        "settings_groups": settings_data
+                    })
+                else:
+                    Logger.warning(f"Manual: Нет данных от менеджера для {macroblock}")
+                
+                # Пропускаем контент до закрывающего тега
+                i += 1
+                while i < len(content) and content[i] != end_tag:
+                    i += 1
+            i += 1
+            
+        Logger.info(f"Manual: Всего собрано блоков уставок: {len(all_blocks_data)}")
+        return all_blocks_data
+
+    def _parse_start_tag(self, raw_tag):
+        """Парсинг тега вида %===m>Path|Name"""
+        # Убираем префикс %===m> (6 символов)
+        payload = raw_tag[6:].strip()
+        parts = payload.split('|')
+        
+        if len(parts) == 2:
+            path_part = parts[0].strip()
+            function_name = parts[1].strip() if parts[1].strip() else "-"
+        else:
+            # Если разделителя нет, считаем всё путем, а имя пустым
+            path_part = parts[0].strip()
+            function_name = "-"
+            
+        return path_part, function_name
