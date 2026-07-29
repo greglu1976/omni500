@@ -109,7 +109,7 @@ class Manual:
                     table.append(head_latex)            
                 for setting in data["Settings"]:
                     str_ = '\\centering '
-                    str_ += str(setting["Description"]) # было Name
+                    str_ += str(setting["Description"].replace('_','\_')) # было Name % .replace('_','\_') Добавлено для фикса / в УШР исполнении общей логики
                     str_ += ' & \centering '
                     if setting["PredefinedValues"]=='':
                         ############# Форматирование Min и Max к требуемому виду в РЭ ####################
@@ -148,7 +148,7 @@ class Manual:
                     str_ = '\\raggedright '
                     str_ += str(setting["Name"])                    
                     str_ += '& \centering '
-                    str_ += str(setting["Description"]) # было Name
+                    str_ += str(setting["Description"].replace('_','\_')) # было Name % .replace('_','\_') Добавлено для фикса / в УШР исполнении общей логики
                     str_ += ' & \centering '
                     if setting["PredefinedValues"]=='':
                         ############# Форматирование Min и Max к требуемому виду в РЭ ####################
