@@ -321,16 +321,16 @@ class Manual:
 
                     # Проверяем результат get_table_settings_latex
                     if not latex_new:  # None или пустой список
-                        Logger.info("Новое содержимое не сгенерировано - оставляем старое.")
+                        Logger.info(f"Новое содержимое не сгенерировано - оставляем старое: {lib_path}")
                         new_content.extend(old_block)
                         new_content.append(end_tag)
                     elif old_block != latex_new:
-                        Logger.info("Контент отличается - будет обновлён.")
+                        Logger.info(f"Контент отличается - будет обновлён: {lib_path}")
                         new_content.extend(latex_new)
                         new_content.append(end_tag)
                         modified = True  # <-- Теперь корректно
                     else:
-                        Logger.info("Контент не изменился - пропускаем обновление.")
+                        Logger.info(f"Контент не изменился - пропускаем обновление: {lib_path}")
                         new_content.extend(old_block)
                         new_content.append(end_tag)
 

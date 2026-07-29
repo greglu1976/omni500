@@ -12,6 +12,8 @@ from core.Manual import Manual
 
 from core.LatexDoc import LatexDoc
 from utils.additional import create_directories, save_obj, load_obj
+from utils.arranger import start_arrange
+
 
 class Application:
     def __init__(self):
@@ -96,6 +98,7 @@ class Application:
             dpg.add_button(label="Обновить перечень сокращений в РЭ", callback=self.renew_abbrs, width=300)            
             dpg.add_spacer(height=5)   
             dpg.add_separator()
+            dpg.add_button(label="Ранжировать приложение с уставками", callback=self.arrange, width=300)  
             dpg.add_spacer(height=5)   
 
             dpg.add_button(label="Обновить перечень сокращений в РУ", callback=self.renew_abbrs_ru, width=300)
@@ -229,7 +232,22 @@ class Application:
         manual.renew_sum_table_latex()
         Logger.info('Суммарная таблица сигналов приложения в РЭ обновлена')
 
+#####################################################################################################
 
+
+    def arrange(self):
+        if not self.is_device_selected():
+            Logger.warning('Устройство не выбрано')
+            return        
+        if self.device_data is None:
+            self.init_device_data()
+        path_to_general_tex = self.device_data["path_to_latex_desc"] + "/_manual_latex/general.tex"
+        path_to_appset_tex = self.device_data["path_to_latex_desc"] + "/Приложение. Уставки/_latex/appset.tex"
+        start_arrange(path_to_general_tex, path_to_appset_tex)     
+        Logger.info('Ранжирование выполнено...')
+
+        
+#####################################################################################################
     def gen_raw_latex(self):
 
         Logger.info('Создание единого файл latex')

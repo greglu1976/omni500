@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from collections import defaultdict
-
+from logger.logger import Logger
 
 class LIB500Manager:
 
@@ -48,7 +48,8 @@ class LIB500Manager:
                 break
 
         if target_fb is None:
-            print(f"Функциональный блок с именем '{lib_path}' не найден.")
+            #print(f"Функциональный блок с именем '{lib_path}' не найден.")
+            Logger.warning(f"Функциональный блок с именем '{lib_path}' не найден.")
             return []
 
         # Определяем, какие режимы нужно обработать
@@ -72,7 +73,8 @@ class LIB500Manager:
                 composition = target_fb['Info']['Composition']
                 macro_blocks = composition.get("MacroBlocks", [])
                 if not macro_blocks:
-                    print("Нет макроблоков в файле.")
+                    Logger.warning(f"Нет макроблоков в файле...")
+                    #print(target_fb)
                     continue
 
                 for macro in macro_blocks:
