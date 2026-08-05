@@ -9,19 +9,6 @@ from logger.logger import Logger
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 sys.path.append(parent_dir)
 
-
-intro_strs = []
-intro_strs.append("\phantomsection"+"\n") # чтобы правильно генерировать ссылку
-intro_strs.append("\color{unidarkgreen}\section*{\centering{\large{ПЕРЕЧЕНЬ СОКРАЩЕНИЙ}}}"+"\n")
-intro_strs.append("\\addcontentsline{toc}{section}{Перечень сокращений}"+"\n") # строка для включения в содержание
-intro_strs.append("{\color{white}\\fontsize{0.1pt}{0.1pt}\selectfont<begABBRS>}"+"\n") # невидимый тег начала перечня сокращений
-intro_strs.append("\color{black}"+"\n")
-intro_strs.append('\\begin{longtable}{>{\\raggedright\\arraybackslash}m{2cm}>{\\raggedright\\arraybackslash}m{0.5cm}>{\\raggedright\\arraybackslash}m{20cm}}'+'\n')
-intro_strs.append('\endfirsthead\endhead\endfoot\endlastfoot'+'\n')
-outro_strs = []
-outro_strs.append('\end{longtable}'+'\n')
-#outro_strs.append("{\color{white}\\fontsize{0.1pt}{0.1pt}\selectfont<endABBRS>}") # невидимый тег начала перечня сокращений
-
 abbrs = {
     'ОСФ':'Орган сравнения фаз',
     'КИТЦ':'Контроль исправности токовых цепей',
@@ -152,85 +139,112 @@ def parse_tex(new_word_list, data):
             tex_list.append("{\color{white}\\fontsize{0.1pt}{0.1pt}\selectfont<endABBRS>}"+'\n')            
     return tex_list 
 
-def parse_tex_new(new_word_list, dict):
+def parse_tex_new(key_list, dict):
+    """
+    Формирует строки для окружения list.
+    key_list – список сокращений, которые есть в словаре.
+    dict – словарь сокращений.
+    Возвращает список строк вида \item[Ключ] Значение;
+    """
     tex_list = []
-    for key in new_word_list:
+    for key in key_list:
         if key in dict:
-            val = dict[key] 
+            val = dict[key]
             if val.startswith('!'):
                 val = val[1:]
-                temp = '\\textcolor{red}{'+val+'}'
-                tex_list.append(f'{key} & -- & {temp}; \\\\'+'\n')
-            else:
-                tex_list.append(f'{key} & -- & {val}; \\\\'+'\n')
-    # Меняем в последней строке ; на точку
+                val = '\\textcolor{red}{' + val + '}'
+            tex_list.append(f'\\item[{key}] {val};' + '\n')
+    # Заменяем последнюю точку с запятой на точку
     if tex_list:
-            last_element_index = len(tex_list) - 1
-            last_element = tex_list[last_element_index]
-            updated_last_element = last_element.replace('; \\\\\n', '. \\\\\n')
-            tex_list[last_element_index] = updated_last_element
+        last = tex_list[-1]
+        tex_list[-1] = last.replace(';', '.', 1)
     return tex_list
 
-########################## ТОЧКА ВХОДА ###################################
 def start_abbr(filepath):
-
     Logger.info("Запуск скрипта обновления абревиатур...")
 
-    #pdf_path = filepath+'/general.pdf'
     path_to_pdf = replace_pdf_with_attrs_txt(filepath)
-
     Logger.info(f"Обработка {path_to_pdf[0]}")
     word_list_origin = extract_words_from_pdf(path_to_pdf[0])
 
-    # убираем повторяющиеся слова
     word_set = set(word_list_origin)
     word_list = sorted(list(word_set))
-    # вытаскиваем абревиатуры
+    # Получаем список всех распознанных аббревиатур (new_word_list)
     new_word_list = sorted(get_abbrs(word_list))
     Logger.info(new_word_list)
 
-    # если список пустой возвращаемся
     if not new_word_list:
         Logger.info("Нет распознанных абревиатур в текущем файле pdf...")
         return 'noabbrs'
 
-    ####################################################
-    # Вывод списка аббревиатур в файл
+    # Запись списков в файл attrs (без изменений)
     with open(path_to_pdf[2], 'w', encoding='utf-8') as file:
         file.write(', '.join(new_word_list))
 
     with open('dictionary.json', 'r', encoding='utf-8') as f:
         data = json.load(f)
-        # Извлекаем множество ключей (сокращений)
         exclude_keys = set(data.keys())
 
-    # Фильтруем new_word_list, оставляя только те слова, которых нет в exclude_keys
     new_abbrs = [word for word in new_word_list if word not in exclude_keys]
-
-    # Записываем (или перезаписываем) файл с двумя строками
     with open(path_to_pdf[2], 'w', encoding='utf-8') as file:
         file.write("Список всех найденных сокращений в general.pdf: " + ", ".join(new_word_list) + "\n")
         file.write("Список новых сокращений для добавления в dictionary.json: " + ", ".join(new_abbrs))
-    
-    # Открытие файла, чтобы убедиться, что нет новых аббревиатур. Если есть, добавить новые аббревиатуры в dictionary.json
+
     os.startfile(path_to_pdf[2])
-    ####################################################
 
-    # Ищем файл со словарем
-    dict = load_dict(abbrs)
-    # старое решение
-    tex_list = parse_tex(new_word_list, dict) 
-    # новое решение
+    # Загружаем словарь
+    dict_data = load_dict(abbrs)
 
-    #abbrs_got = get_abbrs_new(word_list, dict) # получили все аббревиатуры , причем только те, что в словаре
-    #tex_list = parse_tex_new(abbrs_got, dict)
-    final_tex = intro_strs + tex_list + outro_strs
+    # ----- ОСНОВНОЕ ИЗМЕНЕНИЕ -----
+    # Берём только те сокращения из new_word_list, для которых есть расшифровка в словаре
+    filtered_abbrs = [w for w in new_word_list if w in dict_data]
+    # Формируем строки \item
+    tex_lines = parse_tex_new(filtered_abbrs, dict_data)
 
-    # Открываем файл для записи в UTF-8
+    # Вычисляем самое длинное сокращение (для подстановки в \settowidth)
+    longest_abbr = max(filtered_abbrs, key=len) if filtered_abbrs else "ААААА"
+
+    # Динамическое вступление (исправленное)
+    intro_parts = [
+        "\\phantomsection\n",
+        "\\color{unidarkgreen}\\section*{\\centering{\\large{ПЕРЕЧЕНЬ СОКРАЩЕНИЙ}}}\n",
+        "\\addcontentsline{toc}{section}{Перечень сокращений}\n",
+        "\n",
+        "% ===== НАСТРОЙКИ =====\n",
+        "\\newlength{\\abbrgap}\n",
+        "\\setlength{\\abbrgap}{1.5em}   % <-- расстояние между \"--\" и расшифровкой (меняйте здесь)\n",
+        "\n",
+        "% Автоматическая ширина метки: самое длинное сокращение + тире + пробел + запас\n",
+        "\\newlength{\\abbrwidth}\n",
+        f"\\settowidth{{\\abbrwidth}}{{{longest_abbr}}}   % самое длинное сокращение\n",
+        "\\addtolength{\\abbrwidth}{3.5em}% запас под \"-- \" и отступ\n",
+        "% ======================\n",
+        "\n",
+        "{\\color{white}\\fontsize{0.1pt}{0.1pt}\\selectfont<begABBRS>}\n",
+        "\\color{black}\n",
+        "\n",
+        "\\begin{list}{}%\n",
+        "{%\n",
+        "  \\setlength{\\labelwidth}{\\abbrwidth}%\n",
+        "  \\setlength{\\labelsep}{0pt}%      <-- теперь весь отступ задаётся через \\abbrgap в метке\n",
+        "  \\setlength{\\leftmargin}{\\dimexpr\\labelwidth+\\labelsep\\relax}%\n",
+        "  \\setlength{\\itemindent}{0pt}%\n",
+        "  \\setlength{\\parsep}{0pt}%\n",
+        "  \\setlength{\\itemsep}{0pt}\n",
+        "  \\renewcommand{\\makelabel}[1]{#1 --\\hspace{\\abbrgap}}%   <-- метка = сокращение + \"--\" + пробел\n",
+        "}\n"
+    ]
+
+    outro_parts = [
+        "{\\color{white}\\fontsize{0.1pt}{0.1pt}\\selectfont<endABBRS>}\n",
+        "\\end{list}\n"
+    ]
+
+    final_tex = intro_parts + tex_lines + outro_parts
+
+    # Запись итогового .tex-файла
     with open(path_to_pdf[1], 'w', encoding='utf-8') as file:
-        for line in final_tex:
-            file.write(line)  # Добавляем символ новой строки после каждой строки
+        file.writelines(final_tex)
 
     Logger.info("Останов скрипта поиска абревиатур...")
     return
-
