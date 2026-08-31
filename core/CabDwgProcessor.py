@@ -14,6 +14,9 @@ import json
 import re
 import shutil
 
+from logger.logger import Logger
+
+
 class CabDwgProcessor:
     def __init__(self):
         # Конфигурация отступов как атрибут класса
@@ -797,77 +800,77 @@ class CabDwgProcessor:
 
 
 
+    def run(self):
+
+        # Запуск
+
+        current_dir = Path.cwd()
+        dwg_file = current_dir/ "1.dwg"
+        dxf_file = current_dir/ "temp.dxf"
+
+        dsd_file = current_dir / "temp.dsd"
+        pdf_file = current_dir / "temp.pdf"
+
+        pdf_file2 = current_dir / "temp2.pdf"
+
+        scr_path = current_dir/ "publish.scr" # Укажите имя вашего скрипта
+
+        #acadconsole_path = r"D:\Program Files\Autodesk\AutoCAD 2021\accoreconsole.exe"
+        acadconsole_path = r"C:\Program Files\Autodesk\AutoCAD 2026\accoreconsole.exe"
+
+        dxf_file_clean = current_dir/ "cleaned_dxf.dxf"
 
 
-# Запуск
+        print("========================== ШАГ 1 ========================")
+        a = CabDwgProcessor()
+        a.convert_dwg_to_dxf_com(dwg_file, dxf_file)  
+        print("\n⏳ Ожидание освобождения AutoCAD...")
+        time.sleep(3)
 
-current_dir = Path.cwd()
-dwg_file = current_dir/ "1.dwg"
-dxf_file = current_dir/ "temp.dxf"
+        print("========================== ШАГ 2 ========================")
+        a.create_dsd_from_dxf(dxf_file, dsd_file, pdf_file)
+        print("\n⏳ Ожидание освобождения AutoCAD...")
+        time.sleep(3)
 
-dsd_file = current_dir / "temp.dsd"
-pdf_file = current_dir / "temp.pdf"
+        print("========================== ШАГ 3 - ОЧИСТКА DXF ========================")
+        a.clean_dxf(dxf_file)
+        print("\n⏳ Ожидание освобождения AutoCAD...")
+        time.sleep(3)
 
-pdf_file2 = current_dir / "temp2.pdf"
+        print("========================== ШАГ 4 - ПЕЧАТЬ PDF  ========================")
+        a.print_dxf_to_pdf(dxf_file, acadconsole_path, dsd_file, scr_path)
+        time.sleep(6)
 
-scr_path = current_dir/ "publish.scr" # Укажите имя вашего скрипта
+        print("========================== ШАГ 5 - ИЩЕМ СТРАНИЦЫ  ========================")
+        a.create_pages_json_from_pdf(pdf_file) # Должен быть установлен шрият ГОСТ тип А
+        time.sleep(3)
 
-#acadconsole_path = r"D:\Program Files\Autodesk\AutoCAD 2021\accoreconsole.exe"
-acadconsole_path = r"C:\Program Files\Autodesk\AutoCAD 2026\accoreconsole.exe"
+        print("========================== ШАГ 6 - СОЗДАЕМ DSD ДЛЯ ПЕЧАТИ  ========================")
+        a.create_dsd_from_dxf(dxf_file_clean, dsd_file, pdf_file2)
 
-dxf_file_clean = current_dir/ "cleaned_dxf.dxf"
+        print("========================== ШАГ 7 - ПЕЧАТЬ ЧИСТОГО PDF  ========================")
+        a.print_dxf_to_pdf(dxf_file_clean, acadconsole_path, dsd_file, scr_path)
+        time.sleep(3)
 
+        print("========================== ШАГ 8 - НАРЕЗКА PDF  ========================")
+        # Загружаем конфигурацию страниц
+        pages_config = a.load_pages_config('pages.json')
+        print("Входной файл: temp.pdf")
+        print("Результат в папке: output_pages")
+        a.smart_crop_pdf('temp2.pdf', 'output_pages', pages_config)
 
-print("========================== ШАГ 1 ========================")
-a = CabDwgProcessor()
-a.convert_dwg_to_dxf_com(dwg_file, dxf_file)  
-print("\n⏳ Ожидание освобождения AutoCAD...")
-time.sleep(3)
+        print("========================== ШАГ 9 - УДАЛЯЕМ ВРЕМЕННЫЕ ФАЙЛЫ  ========================")
 
-print("========================== ШАГ 2 ========================")
-a.create_dsd_from_dxf(dxf_file, dsd_file, pdf_file)
-print("\n⏳ Ожидание освобождения AutoCAD...")
-time.sleep(3)
+        # Список файлов для удаления
+        files_to_delete = [
+            dxf_file,          # temp.dxf
+            dsd_file,          # temp.dsd
+            scr_path,          # publish.scr
+            dxf_file_clean,
+            pdf_file,
+            pdf_file2,
+            current_dir/"pages.json",
+            current_dir/"plot.log"                                    # cleaned_dxf.dxf
+        ]
 
-print("========================== ШАГ 3 - ОЧИСТКА DXF ========================")
-a.clean_dxf(dxf_file)
-print("\n⏳ Ожидание освобождения AutoCAD...")
-time.sleep(3)
-
-print("========================== ШАГ 4 - ПЕЧАТЬ PDF  ========================")
-a.print_dxf_to_pdf(dxf_file, acadconsole_path, dsd_file, scr_path)
-time.sleep(6)
-
-print("========================== ШАГ 5 - ИЩЕМ СТРАНИЦЫ  ========================")
-a.create_pages_json_from_pdf(pdf_file) # Должен быть установлен шрият ГОСТ тип А
-time.sleep(3)
-
-print("========================== ШАГ 6 - СОЗДАЕМ DSD ДЛЯ ПЕЧАТИ  ========================")
-a.create_dsd_from_dxf(dxf_file_clean, dsd_file, pdf_file2)
-
-print("========================== ШАГ 7 - ПЕЧАТЬ ЧИСТОГО PDF  ========================")
-a.print_dxf_to_pdf(dxf_file_clean, acadconsole_path, dsd_file, scr_path)
-time.sleep(3)
-
-print("========================== ШАГ 8 - НАРЕЗКА PDF  ========================")
-# Загружаем конфигурацию страниц
-pages_config = a.load_pages_config('pages.json')
-print("Входной файл: temp.pdf")
-print("Результат в папке: output_pages")
-a.smart_crop_pdf('temp2.pdf', 'output_pages', pages_config)
-
-print("========================== ШАГ 9 - УДАЛЯЕМ ВРЕМЕННЫЕ ФАЙЛЫ  ========================")
-
-# Список файлов для удаления
-files_to_delete = [
-    dxf_file,          # temp.dxf
-    dsd_file,          # temp.dsd
-    scr_path,          # publish.scr
-    dxf_file_clean,
-    pdf_file,
-    pdf_file2,
-    current_dir/"pages.json",
-    current_dir/"plot.log"                                    # cleaned_dxf.dxf
-]
-
-a.del_files(files_to_delete)
+        a.del_files(files_to_delete)
