@@ -16,6 +16,8 @@ import shutil
 
 from logger.logger import Logger
 
+#ACAD = "AutoCAD.Application" # для AutoCad 2026
+ACAD = "AutoCAD.Application.23" # для AutoCad 2020
 
 class CabDwgProcessor:
     def __init__(self):
@@ -44,7 +46,7 @@ class CabDwgProcessor:
         
         try:
             # Создаём экземпляр AutoCAD
-            acad = win32com.client.Dispatch("AutoCAD.Application")
+            acad = win32com.client.Dispatch(ACAD)
             acad.Visible = False  # Скрытый режим
             
             # Открываем DWG
@@ -91,7 +93,7 @@ class CabDwgProcessor:
         """
         try:
             # 1. Подключаемся к AutoCAD для получения списка листов
-            acad = win32com.client.Dispatch("AutoCAD.Application")
+            acad = win32com.client.Dispatch(ACAD)
             doc = acad.Documents.Open(dxf_path)
             
             # Получаем листы вместе с TabOrder для гарантированной визуальной сортировки
@@ -603,7 +605,211 @@ class CabDwgProcessor:
             print("Используется стандартное сохранение.")
             return None
 
-    def smart_crop_pdf(self, input_pdf, output_folder, pages_config=None):
+
+
+
+    def smart_crop_pdf(self, input_pdf, pages_config=None):
+        """
+        Умная обрезка PDF с автоматическим определением формата и ориентации
+        
+        Args:
+            input_pdf: путь к входному PDF файлу
+            pages_config: словарь конфигурации страниц (если None, используется стандартное сохранение)
+        """
+        
+        # Определяем целевые папки на основе base_path
+        specification_dir = os.path.join(self.base_path, "Приложение. Спецификация")
+        e3_dir = os.path.join(self.base_path, "Приложение. Схема Э3")
+        e4_dir = os.path.join(self.base_path, "Приложение. Схема Э4.1")
+        
+        # Создаем маппинг префиксов к папкам
+        prefix_to_folder = {
+            'Спецификация': specification_dir,
+            'Схема_Э3': e3_dir,
+            'Схема_Э4.1': e4_dir,
+            # Добавьте другие префиксы по необходимости
+        }
+        
+        doc = fitz.open(input_pdf)
+        total_pages = len(doc)
+        
+        print(f"\n{'='*80}")
+        print(f"УМНАЯ ОБРЕЗКА PDF: {input_pdf}")
+        print(f"{'='*80}\n")
+        
+        # Если передана конфигурация страниц, создаем обратный маппинг page_num -> prefix
+        page_prefix_map = {}
+        if pages_config:
+            for prefix, page_nums in pages_config.items():
+                for page_num in page_nums:
+                    page_prefix_map[page_num] = prefix
+            
+            print(f"Конфигурация страниц:")
+            for prefix, page_nums in pages_config.items():
+                print(f"  {prefix}: страницы {page_nums}")
+            print()
+            
+            # Создаем все необходимые папки
+            created_folders = set()
+            for prefix in pages_config.keys():
+                if prefix in prefix_to_folder:
+                    folder_path = prefix_to_folder[prefix]
+                else:
+                    # Если префикс не в маппинге, создаем подпапку в base_path
+                    folder_path = os.path.join(self.base_path, prefix)
+                
+                if not os.path.exists(folder_path):
+                    os.makedirs(folder_path, exist_ok=True)
+                    print(f"📁 Создана папка: {folder_path}")
+                    created_folders.add(prefix)
+                else:
+                    print(f"📁 Папка уже существует: {folder_path}")
+            print()
+        
+        for page_num in range(total_pages):
+            page = doc[page_num]
+            
+            original_rotation = page.rotation
+            original_rect = page.rect
+            original_width_mm = original_rect.width * 0.352778
+            original_height_mm = original_rect.height * 0.352778
+            
+            print(f"\n{'─'*80}")
+            print(f"Страница {page_num + 1}:")
+            print(f"  ИСХОДНЫЙ размер: {original_width_mm:.1f} x {original_height_mm:.1f} мм")
+            print(f"  ИСХОДНЫЙ поворот: {original_rotation}°")
+            print(f"  ИСХОДНЫЙ rect: {original_rect}")
+            
+            # Определяем формат на основе ИСХОДНЫХ параметров
+            format_key = self.detect_format(original_width_mm, original_height_mm, original_rotation)
+            print(f"  Формат: {format_key}")
+            
+            # Получаем отступы
+            if format_key in self.margins_config:
+                top_mm, right_mm, bottom_mm, left_mm = self.margins_config[format_key]
+            else:
+                top_mm, right_mm, bottom_mm, left_mm = self.margins_config.get('default', (6, 6, 6, 6))
+            
+            print(f"  Отступы (мм): верх={top_mm}, право={right_mm}, низ={bottom_mm}, лево={left_mm}")
+            
+            # Конвертируем в points
+            top = top_mm * self.mm_to_points
+            right = right_mm * self.mm_to_points
+            bottom = bottom_mm * self.mm_to_points
+            left = left_mm * self.mm_to_points
+            
+            print(f"  Отступы (points): верх={top:.1f}, право={right:.1f}, низ={bottom:.1f}, лево={left:.1f}")
+            
+            # Если страница повернута, сначала сбрасываем поворот
+            if original_rotation != 0:
+                print(f"\n  → Сбрасываем поворот с {original_rotation}° на 0°...")
+                page.set_rotation(0)
+                current_rect = page.rect
+                print(f"  Rect после сброса поворота: {current_rect}")
+                print(f"  Размер после сброса: {current_rect.width * 0.352778:.1f} x {current_rect.height * 0.352778:.1f} мм")
+            
+            # Теперь применяем отступы к текущему rect (уже без поворота)
+            current_rect = page.rect
+            
+            # Для страниц с поворотом применяем отступы по-другому
+            if original_rotation == 90:
+                crop_rect = fitz.Rect(
+                    current_rect.x0 + top,      # лево = бывший верх
+                    current_rect.y0 + right,    # верх = бывшее право
+                    current_rect.x1 - bottom,   # право = бывший низ
+                    current_rect.y1 - left      # низ = бывшее лево
+                )
+            elif original_rotation == 270:
+                crop_rect = fitz.Rect(
+                    current_rect.x0 + bottom,   # лево = бывший низ
+                    current_rect.y0 + left,     # верх = бывшее лево
+                    current_rect.x1 - top,      # право = бывший верх
+                    current_rect.y1 - right     # низ = бывшее право
+                )
+            else:
+                crop_rect = fitz.Rect(
+                    current_rect.x0 + left,
+                    current_rect.y0 + top,
+                    current_rect.x1 - right,
+                    current_rect.y1 - bottom
+                )
+            
+            print(f"\n  Crop rect (после сброса поворота): ({crop_rect.x0:.1f}, {crop_rect.y0:.1f}, {crop_rect.x1:.1f}, {crop_rect.y1:.1f})")
+            print(f"  Crop размер: {crop_rect.width:.1f} x {crop_rect.height:.1f} points")
+            print(f"  Crop размер (мм): {crop_rect.width * 0.352778:.1f} x {crop_rect.height * 0.352778:.1f} мм")
+            
+            # Проверяем, что crop_rect не выходит за пределы current_rect
+            if (crop_rect.x0 < current_rect.x0 or crop_rect.y0 < current_rect.y0 or
+                crop_rect.x1 > current_rect.x1 or crop_rect.y1 > current_rect.y1):
+                print(f"  ⚠️  Crop rect выходит за пределы MediaBox! Корректируем...")
+                crop_rect = crop_rect.intersect(current_rect)
+                print(f"  Скорректированный crop rect: ({crop_rect.x0:.1f}, {crop_rect.y0:.1f}, {crop_rect.x1:.1f}, {crop_rect.y1:.1f})")
+            
+            # Проверяем, есть ли реальная обрезка
+            if (crop_rect.x0 > current_rect.x0 or crop_rect.y0 > current_rect.y0 or
+                crop_rect.x1 < current_rect.x1 or crop_rect.y1 < current_rect.y1):
+                print(f"  ⚠️  ПРИМЕНЯЕТСЯ ОБРЕЗКА!")
+                page.set_cropbox(crop_rect)
+                print(f"  Cropbox установлен")
+            else:
+                print(f"  ✓ Обрезка не применяется (все отступы = 0)")
+            
+            # Возвращаем оригинальный поворот
+            if original_rotation != 0:
+                print(f"\n  → Возвращаем поворот на {original_rotation}°")
+                page.set_rotation(original_rotation)
+                print(f"  Rect после возврата поворота: {page.rect}")
+            
+            # Сохраняем страницу
+            new_doc = fitz.open()
+            new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
+            
+            # Определяем имя файла и папку
+            if pages_config and (page_num + 1) in page_prefix_map:
+                # Используем конфигурацию из JSON
+                prefix = page_prefix_map[page_num + 1]
+                # Находим индекс этой страницы в списке для данного префикса
+                page_list = pages_config[prefix]
+                index_in_list = page_list.index(page_num + 1) + 1
+                output_filename = f"{index_in_list}.pdf"
+                
+                # Определяем папку для сохранения
+                if prefix in prefix_to_folder:
+                    output_subfolder = prefix_to_folder[prefix]
+                else:
+                    # Если префикс не в маппинге, создаем подпапку в base_path
+                    output_subfolder = os.path.join(self.base_path, prefix)
+                
+                output_path = os.path.join(output_subfolder, output_filename)
+                
+                print(f"  📄 Префикс: {prefix}")
+                print(f"  📄 Папка: {output_subfolder}")
+                print(f"  📄 Имя файла: {output_filename}")
+            else:
+                # Стандартное сохранение по номеру страницы в base_path
+                output_filename = f"{page_num + 1}.pdf"
+                output_subfolder = self.base_path
+                output_path = os.path.join(output_subfolder, output_filename)
+                
+                print(f"  📄 Папка: {output_subfolder}")
+                print(f"  📄 Имя файла: {output_filename}")
+            
+            new_doc.save(output_path)
+            new_doc.close()
+            
+            print(f"  ✅ Сохранено: {output_path}")
+        
+        doc.close()
+        print(f"\n{'='*80}")
+        print(f"✅ Готово! Обработано {total_pages} страниц")
+        print(f"{'='*80}\n")
+
+
+
+
+
+
+    def smart_crop_pdf_old(self, input_pdf, output_folder, pages_config=None):
         """
         Умная обрезка PDF с автоматическим определением формата и ориентации
         
@@ -614,9 +820,11 @@ class CabDwgProcessor:
             pages_config: словарь конфигурации страниц (если None, используется стандартное сохранение)
         """
 
-        if os.path.exists(output_folder):
-            shutil.rmtree(output_folder)
-        os.makedirs(output_folder, exist_ok=True)
+        specification_dir = os.path.join(self.base_path, "Приложение. Спецификация")
+        e3_dir = os.path.join(self.base_path, "Приложение. Схема Э3")
+        e4_dir = os.path.join(self.base_path, "Приложение. Схема Э4.1")
+
+
         
         doc = fitz.open(input_pdf)
         total_pages = len(doc)
@@ -800,12 +1008,32 @@ class CabDwgProcessor:
 
 
 
-    def run(self):
+    def run(self, device_data):
+
+        self.base_path = device_data["path_to_latex_desc"]
+        doc_dir = os.path.join(self.base_path, "Документация")
+
+        # Ищем все PDF файлы в папке
+        pdf_files = [f for f in os.listdir(doc_dir) if f.lower().endswith('.dwg')]
+        
+        if len(pdf_files) > 1:
+            Logger.error("Предупреждение: найдено больше одного DWG файла")
+            return None
+            
+        if len(pdf_files) == 0:
+            Logger.error("Предупреждение:DWG файлы не найдены")
+            return None
+
+        path =  os.path.join(doc_dir, pdf_files[0])
+
+        Logger.info(f"Найден путь к исходному dwg {path}")         
+        # Возвращаем полный путь к единственному файлу
+
 
         # Запуск
 
         current_dir = Path.cwd()
-        dwg_file = current_dir/ "1.dwg"
+        dwg_file = path
         dxf_file = current_dir/ "temp.dxf"
 
         dsd_file = current_dir / "temp.dsd"
@@ -815,49 +1043,49 @@ class CabDwgProcessor:
 
         scr_path = current_dir/ "publish.scr" # Укажите имя вашего скрипта
 
-        #acadconsole_path = r"D:\Program Files\Autodesk\AutoCAD 2021\accoreconsole.exe"
-        acadconsole_path = r"C:\Program Files\Autodesk\AutoCAD 2026\accoreconsole.exe"
+        acadconsole_path = r"C:\Program Files\Autodesk\AutoCAD 2020\accoreconsole.exe"
+        #acadconsole_path = r"C:\Program Files\Autodesk\AutoCAD 2026\accoreconsole.exe"
 
         dxf_file_clean = current_dir/ "cleaned_dxf.dxf"
 
 
-        print("========================== ШАГ 1 ========================")
-        a = CabDwgProcessor()
-        a.convert_dwg_to_dxf_com(dwg_file, dxf_file)  
-        print("\n⏳ Ожидание освобождения AutoCAD...")
+        Logger.info("========================== ШАГ 1 ========================")
+
+        self.convert_dwg_to_dxf_com(dwg_file, dxf_file)  
+        Logger.info("\n⏳ Ожидание освобождения AutoCAD...")
         time.sleep(3)
 
-        print("========================== ШАГ 2 ========================")
-        a.create_dsd_from_dxf(dxf_file, dsd_file, pdf_file)
-        print("\n⏳ Ожидание освобождения AutoCAD...")
+        Logger.info("========================== ШАГ 2 ========================")
+        self.create_dsd_from_dxf(dxf_file, dsd_file, pdf_file)
+        Logger.info("\n⏳ Ожидание освобождения AutoCAD...")
         time.sleep(3)
 
-        print("========================== ШАГ 3 - ОЧИСТКА DXF ========================")
-        a.clean_dxf(dxf_file)
-        print("\n⏳ Ожидание освобождения AutoCAD...")
+        Logger.info("========================== ШАГ 3 - ОЧИСТКА DXF ========================")
+        self.clean_dxf(dxf_file)
+        Logger.info("\n⏳ Ожидание освобождения AutoCAD...")
         time.sleep(3)
 
-        print("========================== ШАГ 4 - ПЕЧАТЬ PDF  ========================")
-        a.print_dxf_to_pdf(dxf_file, acadconsole_path, dsd_file, scr_path)
+        Logger.info("========================== ШАГ 4 - ПЕЧАТЬ PDF  ========================")
+        self.print_dxf_to_pdf(dxf_file, acadconsole_path, dsd_file, scr_path)
         time.sleep(6)
 
-        print("========================== ШАГ 5 - ИЩЕМ СТРАНИЦЫ  ========================")
-        a.create_pages_json_from_pdf(pdf_file) # Должен быть установлен шрият ГОСТ тип А
+        Logger.info("========================== ШАГ 5 - ИЩЕМ СТРАНИЦЫ  ========================")
+        self.create_pages_json_from_pdf(pdf_file) # Должен быть установлен шрият ГОСТ тип А
         time.sleep(3)
 
-        print("========================== ШАГ 6 - СОЗДАЕМ DSD ДЛЯ ПЕЧАТИ  ========================")
-        a.create_dsd_from_dxf(dxf_file_clean, dsd_file, pdf_file2)
+        Logger.info("========================== ШАГ 6 - СОЗДАЕМ DSD ДЛЯ ПЕЧАТИ  ========================")
+        self.create_dsd_from_dxf(dxf_file_clean, dsd_file, pdf_file2)
 
-        print("========================== ШАГ 7 - ПЕЧАТЬ ЧИСТОГО PDF  ========================")
-        a.print_dxf_to_pdf(dxf_file_clean, acadconsole_path, dsd_file, scr_path)
+        Logger.info("========================== ШАГ 7 - ПЕЧАТЬ ЧИСТОГО PDF  ========================")
+        self.print_dxf_to_pdf(dxf_file_clean, acadconsole_path, dsd_file, scr_path)
         time.sleep(3)
 
-        print("========================== ШАГ 8 - НАРЕЗКА PDF  ========================")
+        Logger.info("========================== ШАГ 8 - НАРЕЗКА PDF  ========================")
         # Загружаем конфигурацию страниц
-        pages_config = a.load_pages_config('pages.json')
-        print("Входной файл: temp.pdf")
-        print("Результат в папке: output_pages")
-        a.smart_crop_pdf('temp2.pdf', 'output_pages', pages_config)
+        pages_config = self.load_pages_config('pages.json')
+        Logger.info("Входной файл: temp.pdf")
+        Logger.info("Результат в папке: output_pages")
+        #self.smart_crop_pdf('temp2.pdf', pages_config)
 
         print("========================== ШАГ 9 - УДАЛЯЕМ ВРЕМЕННЫЕ ФАЙЛЫ  ========================")
 
@@ -873,4 +1101,4 @@ class CabDwgProcessor:
             current_dir/"plot.log"                                    # cleaned_dxf.dxf
         ]
 
-        a.del_files(files_to_delete)
+        self.del_files(files_to_delete)

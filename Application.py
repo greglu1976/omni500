@@ -14,6 +14,7 @@ from core.LatexDoc import LatexDoc
 from utils.additional import create_directories, save_obj, load_obj
 from utils.arranger import start_arrange
 
+from core.CabDwgProcessor import CabDwgProcessor
 
 class Application:
     def __init__(self):
@@ -116,6 +117,17 @@ class Application:
             dpg.add_spacer(height=5)
             dpg.add_separator() 
             dpg.add_spacer(height=5) 
+
+            dpg.add_button(
+                label="Обновить приложения РЭ ШЭТ",
+                callback=self.update_appx_shet,
+                width=300
+            )
+
+            dpg.add_spacer(height=5)
+            dpg.add_separator() 
+            dpg.add_spacer(height=5) 
+
 
             dpg.add_button(
                 label="Собрать в один файл latex (raw.tex)",
@@ -234,6 +246,18 @@ class Application:
 
 #####################################################################################################
 
+
+    def update_appx_shet(self):
+        if not self.is_device_selected():
+            Logger.warning('Устройство не выбрано')
+            return        
+        if self.device_data is None:
+            self.init_device_data()        
+        appx = CabDwgProcessor()
+        appx.run(device_data=self.device_data)
+
+
+#####################################################################################################
 
     def arrange(self):
         if not self.is_device_selected():
