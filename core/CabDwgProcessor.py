@@ -607,7 +607,9 @@ class CabDwgProcessor:
             return None
 
 
-    def smart_crop_pdf(self, input_pdf, pages_config=None):
+
+
+    def smart_crop_pdf2(self, input_pdf, pages_config=None):
         """
         Умная обрезка PDF с автоматическим определением формата и ориентации
         
@@ -819,6 +821,202 @@ class CabDwgProcessor:
         
         doc.close()
         Logger.info(f"Готово! Обработано {total_pages} страниц")
+
+
+
+
+    def smart_crop_pdf(self, input_pdf, pages_config=None):
+        """
+        Умная обрезка PDF с автоматическим определением формата и ориентации
+        
+        Args:
+            input_pdf: путь к входному PDF файлу
+            pages_config: словарь конфигурации страниц (если None, используется стандартное сохранение)
+        """
+        
+        # Определяем целевые папки на основе base_path
+        specification_dir = os.path.join(self.base_path, "Приложение. Спецификация/_latex/img")
+        e3_dir = os.path.join(self.base_path, "Приложение. Схема Э3/_latex/img")
+        e4_dir = os.path.join(self.base_path, "Приложение. Схема Э4.1/_latex/img")
+        pn_dir = os.path.join(self.base_path, "Приложение. Перечень надписей/_latex/img")  # Резерв
+        
+        # --- НАЧАЛО ИЗМЕНЕНИЙ: Очистка папок ---
+        target_folders = [specification_dir, e3_dir, e4_dir]
+        
+        Logger.info("🧹 Очистка целевых папок от старых PDF...")
+        for folder in target_folders:
+            if os.path.exists(folder):
+                # Удаляем только файлы с расширением .pdf
+                for f in os.listdir(folder):
+                    if f.lower().endswith('.pdf'):
+                        file_path = os.path.join(folder, f)
+                        try:
+                            os.remove(file_path)
+                            # Logger.debug(f"Удален старый файл: {f}") # Можно раскомментировать для детального лога
+                        except Exception as e:
+                            Logger.warning(f"Не удалось удалить {f}: {e}")
+            else:
+                # Если папки нет, создаем её
+                os.makedirs(folder, exist_ok=True)
+        # --- КОНЕЦ ИЗМЕНЕНИЙ ---
+        
+        doc = fitz.open(input_pdf)
+        total_pages = len(doc)
+        
+        Logger.info(f"УМНАЯ ОБРЕЗКА PDF: {input_pdf}")
+        
+        # Если передана конфигурация страниц, создаем обратный маппинг page_num -> prefix
+        page_prefix_map = {}
+        if pages_config:
+            for prefix, page_nums in pages_config.items():
+                for page_num in page_nums:
+                    page_prefix_map[page_num] = prefix
+            
+            Logger.info(f"Конфигурация страниц:")
+            for prefix, page_nums in pages_config.items():
+                Logger.info(f"  {prefix}: страницы {page_nums}")
+
+        
+        for page_num in range(total_pages):
+            page = doc[page_num]
+            
+            original_rotation = page.rotation
+            original_rect = page.rect
+            original_width_mm = original_rect.width * 0.352778
+            original_height_mm = original_rect.height * 0.352778
+            
+            # Определяем формат на основе ИСХОДНЫХ параметров
+            format_key = self.detect_format(original_width_mm, original_height_mm, original_rotation)
+            
+            # Получаем отступы
+            if format_key in self.margins_config:
+                top_mm, right_mm, bottom_mm, left_mm = self.margins_config[format_key]
+            else:
+                top_mm, right_mm, bottom_mm, left_mm = self.margins_config.get('default', (6, 6, 6, 6))
+            
+            # Конвертируем в points
+            top = top_mm * self.mm_to_points
+            right = right_mm * self.mm_to_points
+            bottom = bottom_mm * self.mm_to_points
+            left = left_mm * self.mm_to_points
+            
+            # Если страница повернута, сначала сбрасываем поворот
+            if original_rotation != 0:
+                page.set_rotation(0)
+                current_rect = page.rect
+            
+            # Теперь применяем отступы к текущему rect (уже без поворота)
+            current_rect = page.rect
+            
+            # Для страниц с поворотом применяем отступы по-другому
+            if original_rotation == 90:
+                crop_rect = fitz.Rect(
+                    current_rect.x0 + top,      # лево = бывший верх
+                    current_rect.y0 + right,    # верх = бывшее право
+                    current_rect.x1 - bottom,   # право = бывший низ
+                    current_rect.y1 - left      # низ = бывшее лево
+                )
+            elif original_rotation == 270:
+                crop_rect = fitz.Rect(
+                    current_rect.x0 + bottom,   # лево = бывший низ
+                    current_rect.y0 + left,     # верх = бывшее лево
+                    current_rect.x1 - top,      # право = бывший верх
+                    current_rect.y1 - right     # низ = бывшее право
+                )
+            else:
+                crop_rect = fitz.Rect(
+                    current_rect.x0 + left,
+                    current_rect.y0 + top,
+                    current_rect.x1 - right,
+                    current_rect.y1 - bottom
+                )
+            
+            # Проверяем, что crop_rect не выходит за пределы current_rect
+            if (crop_rect.x0 < current_rect.x0 or crop_rect.y0 < current_rect.y0 or
+                crop_rect.x1 > current_rect.x1 or crop_rect.y1 > current_rect.y1):
+                crop_rect = crop_rect.intersect(current_rect)
+            
+            # Проверяем, есть ли реальная обрезка
+            if (crop_rect.x0 > current_rect.x0 or crop_rect.y0 > current_rect.y0 or
+                crop_rect.x1 < current_rect.x1 or crop_rect.y1 < current_rect.y1):
+                page.set_cropbox(crop_rect)
+            
+            # Возвращаем оригинальный поворот
+            if original_rotation != 0:
+                page.set_rotation(original_rotation)
+            
+            # Сохраняем страницу
+            new_doc = fitz.open()
+            new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
+            
+            # Определяем имя файла и папку
+            if pages_config and (page_num + 1) in page_prefix_map:
+                # Используем конфигурацию из JSON
+                prefix = page_prefix_map[page_num + 1]
+                # Находим индекс этой страницы в списке для данного префикса
+                page_list = pages_config[prefix]
+                index_in_list = page_list.index(page_num + 1) + 1
+                
+                # ОПРЕДЕЛЯЕМ ПАПКУ ДЛЯ СОХРАНЕНИЯ НА ОСНОВЕ ТЕГА
+                if prefix == 'ПН':
+                    # Проверка на ПН - показываем информацию, но НЕ сохраняем
+                    output_subfolder = pn_dir
+                    output_filename = f"{prefix}_{index_in_list}.pdf"
+                    Logger.info(f" СОХРАНЕНИЕ ПРОПУЩЕНО (ПН - зарезервировано)")
+                    new_doc.close()
+                    continue  # Пропускаем сохранение
+                    
+                elif prefix == 'ПЭ':
+                    # ПЭ сохраняется в папку Спецификации
+                    output_subfolder = specification_dir
+                    output_filename = f"{prefix}_{index_in_list}.pdf"
+                    Logger.info(f"Префикс: {prefix} → Спецификация")
+                    
+                elif prefix == 'СЭП':
+                    # СЭП сохраняется в папку Схема Э3
+                    output_subfolder = e3_dir
+                    output_filename = f"{prefix}_{index_in_list}.pdf"
+                    Logger.info(f"Префикс: {prefix} → Схема Э3")
+                    
+                elif prefix == 'СЭС':
+                    # СЭС сохраняется в папку Схема Э4.1
+                    output_subfolder = e4_dir
+                    output_filename = f"{prefix}_{index_in_list}.pdf"
+                    Logger.info(f"Префикс: {prefix} → Схема Э4.1")
+                    
+                else:
+                    # Другие теги - используем стандартную логику или base_path
+                    output_subfolder = self.base_path
+                    output_filename = f"{prefix}_{index_in_list}.pdf"
+                    Logger.info(f"Префикс: {prefix} (стандартное сохранение)")
+                
+                output_path = os.path.join(output_subfolder, output_filename)
+                
+                Logger.info(f"Папка: {output_subfolder}")
+                Logger.info(f"Имя файла: {output_filename}")
+                
+                new_doc.save(output_path)
+                new_doc.close()
+                
+                Logger.info(f"Сохранено: {output_path}")
+                    
+            else:
+                # Стандартное сохранение по номеру страницы в base_path
+                output_filename = f"{page_num + 1}.pdf"
+                output_subfolder = self.base_path
+                output_path = os.path.join(output_subfolder, output_filename)
+                
+                Logger.info(f"Папка: {output_subfolder}")
+                Logger.info(f"Имя файла: {output_filename}")
+                
+                new_doc.save(output_path)
+                new_doc.close()
+                
+                Logger.info(f"Сохранено: {output_path}")
+        
+        doc.close()
+        Logger.info(f"Готово! Обработано {total_pages} страниц")
+
 
 
 
