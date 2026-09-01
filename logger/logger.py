@@ -7,19 +7,22 @@ class Logger:
     TEXT_COLORS = {
         "INFO": (80, 80, 80, 255),  # Белый (обычный текст)
         "WARNING": (0, 100, 255, 255),   # Синий (новый цвет для WARNING)
-        "ERROR": (255, 0, 0, 255)  # Красный
+        "ERROR": (255, 0, 0, 255),  # Красный
+        "DEBUG": (100, 100, 100, 255)  # Серый цвет для отладочных сообщений
     }
 
     COLORS = {
         "INFO": (100, 200, 255),
         "WARNING": (255, 255, 100),
-        "ERROR": (255, 100, 100)
+        "ERROR": (255, 100, 100),
+        "DEBUG": (200, 200, 200)  # Светло-серый
     }
     
     visible_levels = {
         "INFO": True,
         "WARNING": True,
-        "ERROR": True
+        "ERROR": True,
+        "DEBUG": True  # По умолчанию включен
     }
     
     log_container = None
@@ -41,7 +44,11 @@ class Logger:
     @classmethod
     def error(cls, message):
         cls._add_log("ERROR", message)
-    
+
+    @classmethod
+    def debug(cls, message):
+        cls._add_log("DEBUG", message)
+
     @classmethod
     def _add_log(cls, level, message):
         if cls.visible_levels.get(level, True):
