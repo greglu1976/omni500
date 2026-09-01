@@ -55,7 +55,7 @@ class Application:
         
 
         # Главное окно
-        with dpg.window(label="Главное окно", width=400, height=550):
+        with dpg.window(label="Главное окно", width=400, height=520):
            
             # Сохраняем идентификатор комбобокса
             self.device_combo = dpg.add_combo(
@@ -142,7 +142,7 @@ class Application:
 
         Logger.set_container("log_content", "log_window")
         
-        dpg.create_viewport(title="OMNI-500 v.0.0.8  29.07.26", width=1215, height=550)
+        dpg.create_viewport(title="OMNI-500 v.0.0.9  01.09.26", width=1215, height=600)
         dpg.setup_dearpygui()
 
 
