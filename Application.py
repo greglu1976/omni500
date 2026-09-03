@@ -254,7 +254,7 @@ class Application:
         if self.device_data is None:
             self.init_device_data()        
         appx = CabDwgProcessor()
-        appx.run(device_data=self.device_data)
+        appx.run(self.device_data["path_to_latex_desc"])
 
 
 #####################################################################################################

@@ -45,7 +45,7 @@ class CabDwgProcessor:
         Logger.info(f"Выходной файл: {dxf_path}")
         
         if not os.path.exists(dwg_path):
-            Logger.error(f"\n❌ Ошибка: Входной файл не найден: {dwg_path}")
+            Logger.error(f"Ошибка: Входной файл не найден: {dwg_path}")
             return False
         
         try:
@@ -79,8 +79,8 @@ class CabDwgProcessor:
             if os.path.exists(dxf_path):
                 size = os.path.getsize(dxf_path)
                 Logger.info("DXF успешно создан!")
-                #Logger.info(f"Путь: {dxf_path}")
-                #Logger.info(f" Размер: {size} байт ({size/1024:.2f} KB)")
+                Logger.debug(f"Путь: {dxf_path}")
+                Logger.debug(f" Размер: {size} байт ({size/1024:.2f} KB)")
                 return True
             else:
                 Logger.error("Ошибка: DXF файл не создан")
@@ -149,7 +149,7 @@ class CabDwgProcessor:
             with open(dsd_path, 'w', encoding='cp1251') as f:
                 f.write(dsd_content)
                 
-            Logger.info(f"DSD-файл успешно создан: {dsd_path}")
+            Logger.success(f"DSD-файл успешно создан: {dsd_path}")
             Logger.info(f"Найдено листов: {len(layouts)}")
             Logger.info(f"Порядок вкладок: {layouts}")
             return True
@@ -341,7 +341,7 @@ class CabDwgProcessor:
                 bbox = get_block_bbox(entity)
                 if bbox:
                     stamp_bboxes.append(bbox)
-                    Logger.info(f"  Найден штамп: {entity.dxf.name}")
+                    Logger.debug(f"  Найден штамп: {entity.dxf.name}")
 
         #Logger.info(f"  Найдено штампов: {len(blocks_to_delete)}")
 
@@ -391,7 +391,7 @@ class CabDwgProcessor:
                         if abs(area - target_area) < area_tolerance:
                             entities_to_remove.add(entity)
                             area_deleted_count += 1
-                            #Logger.info(f"  Найдена рамка по площади: {area:.1f} (цель: {target_area})")
+                            Logger.debug(f"  Найдена рамка по площади: {area:.1f} (цель: {target_area})")
                             break
 
         #Logger.info(f"  Найдено дополнительных рамок по площади: {area_deleted_count}")
@@ -418,12 +418,12 @@ class CabDwgProcessor:
                 except Exception as e:
                     Logger.error(f"  Ошибка при проверке MTEXT: {e}")
 
-        Logger.info(f"  Найдено MTEXT для удаления: {mtext_deleted_count}")
+        Logger.debug(f"  Найдено MTEXT для удаления: {mtext_deleted_count}")
 
         # ==========================================
         # ВЫПОЛНЕНИЕ УДАЛЕНИЯ
         # ==========================================
-        Logger.info(f"Итого будет удалено объектов: {len(entities_to_remove)}")
+        Logger.debug(f"Итого будет удалено объектов: {len(entities_to_remove)}")
 
         deleted_count = 0
         for ent in entities_to_remove:
@@ -433,11 +433,11 @@ class CabDwgProcessor:
             except Exception as e:
                 Logger.error(f"  Ошибка при удалении {ent.dxftype()}: {e}")
 
-        Logger.info(f"Фактически удалено: {deleted_count} объектов")
+        Logger.debug(f"Фактически удалено: {deleted_count} объектов")
 
         try:
             doc.saveas("cleaned_dxf.dxf")
-            Logger.info("Файл сохранен как 'cleaned_dxf.dxf'")
+            Logger.debug("Файл сохранен как 'cleaned_dxf.dxf'")
         except Exception as e:
             Logger.error(f"Ошибка при сохранении: {e}")
 
@@ -460,8 +460,8 @@ class CabDwgProcessor:
         with open(scr_path, 'w', encoding='cp1251') as f:
             f.write(script_content)
         
-        Logger.info(f"Создан SCR: {scr_path}")
-        Logger.info(f"Используется DSD: {dsd_path}")
+        Logger.debug(f"Создан SCR: {scr_path}")
+        Logger.debug(f"Используется DSD: {dsd_path}")
 
 
         # Меняем кодировку на cp866, чтобы русские логи читались нормально
@@ -477,7 +477,7 @@ class CabDwgProcessor:
 
         if "Нет ошибок или предупреждений" in result.stdout or "no errors or warnings" in result.stdout.lower():
             #prLogger.infoint("PDF успешно создан!")
-            Logger.info("PDF успешно создан!")
+            Logger.success("PDF успешно создан!")
         else:
             pass
             #print("Возможны ошибки. Проверьте лог выше.")
@@ -545,7 +545,7 @@ class CabDwgProcessor:
             with open(output_json, 'w', encoding='utf-8') as f:
                 json.dump(temp_groups, f, ensure_ascii=False, indent=4)
                 
-            Logger.info(f"Файл {output_json} успешно создан!")
+            Logger.debug(f"Файл {output_json} успешно создан!")
             Logger.info(f"Структура страниц: {json.dumps(temp_groups, ensure_ascii=False)}")
 
         except Exception as e:
@@ -607,201 +607,6 @@ class CabDwgProcessor:
             return None
 
 
-
-    def smart_crop_pdf2(self, input_pdf, pages_config=None):
-        """
-        Умная обрезка PDF с автоматическим определением формата и ориентации
-        
-        Args:
-            input_pdf: путь к входному PDF файлу
-            pages_config: словарь конфигурации страниц (если None, используется стандартное сохранение)
-        """
-        
-        # Определяем целевые папки на основе base_path
-        specification_dir = os.path.join(self.base_path, "Приложение. Спецификация/_latex/img")
-        e3_dir = os.path.join(self.base_path, "Приложение. Схема Э3/_latex/img")
-        e4_dir = os.path.join(self.base_path, "Приложение. Схема Э4.1/_latex/img")
-        pn_dir = os.path.join(self.base_path, "Приложение. Перечень надписей/_latex/img")  # Резерв
-        
-        # --- НАЧАЛО ИЗМЕНЕНИЙ: Очистка папок ---
-        target_folders = [specification_dir, e3_dir, e4_dir]
-        
-        Logger.info("🧹 Очистка целевых папок от старых PDF...")
-        for folder in target_folders:
-            if os.path.exists(folder):
-                # Удаляем только файлы с расширением .pdf
-                for f in os.listdir(folder):
-                    if f.lower().endswith('.pdf'):
-                        file_path = os.path.join(folder, f)
-                        try:
-                            os.remove(file_path)
-                            Logger.debug(f"Удален старый файл: {f}") # Можно раскомментировать для детального лога
-                        except Exception as e:
-                            Logger.warning(f"Не удалось удалить {f}: {e}")
-            else:
-                # Если папки нет, создаем её
-                os.makedirs(folder, exist_ok=True)
-        # --- КОНЕЦ ИЗМЕНЕНИЙ ---
-        
-        doc = fitz.open(input_pdf)
-        total_pages = len(doc)
-        
-        Logger.info(f"УМНАЯ ОБРЕЗКА PDF: {input_pdf}")
-        
-        # Если передана конфигурация страниц, создаем обратный маппинг page_num -> prefix
-        page_prefix_map = {}
-        if pages_config:
-            for prefix, page_nums in pages_config.items():
-                for page_num in page_nums:
-                    page_prefix_map[page_num] = prefix
-            
-            Logger.info(f"Конфигурация страниц:")
-            for prefix, page_nums in pages_config.items():
-                Logger.info(f"  {prefix}: страницы {page_nums}")
-
-        
-        for page_num in range(total_pages):
-            page = doc[page_num]
-            
-            original_rotation = page.rotation
-            original_rect = page.rect
-            original_width_mm = original_rect.width * 0.352778
-            original_height_mm = original_rect.height * 0.352778
-            
-            # Определяем формат на основе ИСХОДНЫХ параметров
-            format_key = self.detect_format(original_width_mm, original_height_mm, original_rotation)
-            
-            # Получаем отступы
-            if format_key in self.margins_config:
-                top_mm, right_mm, bottom_mm, left_mm = self.margins_config[format_key]
-            else:
-                top_mm, right_mm, bottom_mm, left_mm = self.margins_config.get('default', (6, 6, 6, 6))
-            
-            # Конвертируем в points
-            top = top_mm * self.mm_to_points
-            right = right_mm * self.mm_to_points
-            bottom = bottom_mm * self.mm_to_points
-            left = left_mm * self.mm_to_points
-            
-            # Если страница повернута, сначала сбрасываем поворот
-            if original_rotation != 0:
-                page.set_rotation(0)
-                current_rect = page.rect
-            
-            # Теперь применяем отступы к текущему rect (уже без поворота)
-            current_rect = page.rect
-            
-            # Для страниц с поворотом применяем отступы по-другому
-            if original_rotation == 90:
-                crop_rect = fitz.Rect(
-                    current_rect.x0 + top,      # лево = бывший верх
-                    current_rect.y0 + right,    # верх = бывшее право
-                    current_rect.x1 - bottom,   # право = бывший низ
-                    current_rect.y1 - left      # низ = бывшее лево
-                )
-            elif original_rotation == 270:
-                crop_rect = fitz.Rect(
-                    current_rect.x0 + bottom,   # лево = бывший низ
-                    current_rect.y0 + left,     # верх = бывшее лево
-                    current_rect.x1 - top,      # право = бывший верх
-                    current_rect.y1 - right     # низ = бывшее право
-                )
-            else:
-                crop_rect = fitz.Rect(
-                    current_rect.x0 + left,
-                    current_rect.y0 + top,
-                    current_rect.x1 - right,
-                    current_rect.y1 - bottom
-                )
-            
-            # Проверяем, что crop_rect не выходит за пределы current_rect
-            if (crop_rect.x0 < current_rect.x0 or crop_rect.y0 < current_rect.y0 or
-                crop_rect.x1 > current_rect.x1 or crop_rect.y1 > current_rect.y1):
-                crop_rect = crop_rect.intersect(current_rect)
-            
-            # Проверяем, есть ли реальная обрезка
-            if (crop_rect.x0 > current_rect.x0 or crop_rect.y0 > current_rect.y0 or
-                crop_rect.x1 < current_rect.x1 or crop_rect.y1 < current_rect.y1):
-                page.set_cropbox(crop_rect)
-            
-            # Возвращаем оригинальный поворот
-            if original_rotation != 0:
-                page.set_rotation(original_rotation)
-            
-            # Сохраняем страницу
-            new_doc = fitz.open()
-            new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
-            
-            # Определяем имя файла и папку
-            if pages_config and (page_num + 1) in page_prefix_map:
-                # Используем конфигурацию из JSON
-                prefix = page_prefix_map[page_num + 1]
-                # Находим индекс этой страницы в списке для данного префикса
-                page_list = pages_config[prefix]
-                index_in_list = page_list.index(page_num + 1) + 1
-                
-                # ОПРЕДЕЛЯЕМ ПАПКУ ДЛЯ СОХРАНЕНИЯ НА ОСНОВЕ ТЕГА
-                if prefix == 'ПН':
-                    # Проверка на ПН - показываем информацию, но НЕ сохраняем
-                    output_subfolder = pn_dir
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f" СОХРАНЕНИЕ ПРОПУЩЕНО (ПН - зарезервировано)")
-                    new_doc.close()
-                    continue  # Пропускаем сохранение
-                    
-                elif prefix == 'ПЭ':
-                    # ПЭ сохраняется в папку Спецификации
-                    output_subfolder = specification_dir
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"Префикс: {prefix} → Спецификация")
-                    
-                elif prefix == 'СЭП':
-                    # СЭП сохраняется в папку Схема Э3
-                    output_subfolder = e3_dir
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"Префикс: {prefix} → Схема Э3")
-                    
-                elif prefix == 'СЭС':
-                    # СЭС сохраняется в папку Схема Э4.1
-                    output_subfolder = e4_dir
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"Префикс: {prefix} → Схема Э4.1")
-                    
-                else:
-                    # Другие теги - используем стандартную логику или base_path
-                    output_subfolder = self.base_path
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"Префикс: {prefix} (стандартное сохранение)")
-                
-                output_path = os.path.join(output_subfolder, output_filename)
-                
-                Logger.info(f"Папка: {output_subfolder}")
-                Logger.info(f"Имя файла: {output_filename}")
-                
-                new_doc.save(output_path)
-                new_doc.close()
-                
-                Logger.info(f"Сохранено: {output_path}")
-                    
-            else:
-                # Стандартное сохранение по номеру страницы в base_path
-                output_filename = f"{page_num + 1}.pdf"
-                output_subfolder = self.base_path
-                output_path = os.path.join(output_subfolder, output_filename)
-                
-                Logger.info(f"Папка: {output_subfolder}")
-                Logger.info(f"Имя файла: {output_filename}")
-                
-                new_doc.save(output_path)
-                new_doc.close()
-                
-                Logger.info(f"Сохранено: {output_path}")
-        
-        doc.close()
-        Logger.info(f"Готово! Обработано {total_pages} страниц")
-
-
-
     def del_files(self, files_list):
 
         """
@@ -833,12 +638,13 @@ class CabDwgProcessor:
             Logger.warning(f"Остались файлы: {', '.join([os.path.basename(f) for f in remaining])}")
             Logger.info("Возможно, файлы используются другими программами (закройте AutoCAD)")
         else:
-            Logger.info("Все файлы успешно удалены!")
+            Logger.success("Все файлы успешно удалены!")
 
 
-    def run(self, device_data):
+    def run(self, base_path):
 
-        self.base_path = device_data["path_to_latex_desc"]
+        self.base_path = base_path
+
         doc_dir = os.path.join(self.base_path, "Документация")
 
         # Ищем все PDF файлы в папке
@@ -853,9 +659,7 @@ class CabDwgProcessor:
             return None
 
         path =  os.path.join(doc_dir, pdf_files[0])
-
-        Logger.info(f"Найден путь к исходному dwg {path}")         
-        # Возвращаем полный путь к единственному файлу
+        Logger.info(f"Найден путь к исходному dwg {path}") 
 
         # Запуск
 
@@ -873,13 +677,13 @@ class CabDwgProcessor:
         dxf_file_clean = current_dir/ "cleaned_dxf.dxf"
 
 
-        Logger.info("========================== ШАГ 1 ========================")
+        Logger.info("========================== ШАГ 1 ПРЕОБРАЗУЕМ DWG в DXF ========================")
 
         self.convert_dwg_to_dxf_com(dwg_file, dxf_file)  
         Logger.info("Ожидание освобождения AutoCAD...")
         time.sleep(3)
 
-        Logger.info("========================== ШАГ 2 ========================")
+        Logger.info("========================== ШАГ 2 СОЗДАЕМ DSD ========================")
         self.create_dsd_from_dxf(dxf_file, dsd_file, pdf_file)
         Logger.info("Ожидание освобождения AutoCAD...")
         time.sleep(3)
@@ -927,7 +731,7 @@ class CabDwgProcessor:
 
         self.del_files(files_to_delete)
 
-        Logger.info("========================== ПРИЛОЖЕНИЯ ОБНОВЛЕНЫ  ========================")
+        Logger.success("========================== ПРИЛОЖЕНИЯ ОБНОВЛЕНЫ  ========================")
 
 
 
@@ -1140,7 +944,7 @@ class CabDwgProcessor:
                 
                 new_doc.save(output_path)
                 new_doc.close()
-                Logger.info(f"✅ Сохранено: {output_path}")
+                Logger.info(f"Сохранено: {output_path}")
                     
             else:
                 # Стандартное сохранение по номеру страницы
@@ -1151,13 +955,10 @@ class CabDwgProcessor:
                 Logger.info(f"Сохранение: {output_path}")
                 new_doc.save(output_path)
                 new_doc.close()
-                Logger.info(f"✅ Сохранено: {output_path}")
+                Logger.info(f"Сохранено: {output_path}")
         
         doc.close()
-        Logger.info(f"\n🎉 Готово! Обработано {total_pages} страниц")
-
-
-
+        Logger.info(f"Готово! Обработано {total_pages} страниц")
 
 
     # ============================================
@@ -1354,7 +1155,7 @@ class CabDwgProcessor:
         pn_dir = os.path.join(self.base_path, "Приложение. Перечень надписей/_latex/img")
         
         target_folders = [specification_dir, e3_dir, e4_dir]
-        Logger.info("🧹 Очистка целевых папок...")
+        Logger.info("Очистка целевых папок...")
         for folder in target_folders:
             if os.path.exists(folder):
                 for f in os.listdir(folder):
@@ -1403,7 +1204,7 @@ class CabDwgProcessor:
                     (abs(width_mm - 297) < 10 and abs(height_mm - 210) < 10)
             is_a4 = True
             if is_full_page and is_a4:
-                Logger.warning(f"⚠️ Стр. {page_num+1} (А4): Полный контент. Pre-crop + Pixel Analysis...")
+                Logger.debug(f"⚠️ Стр. {page_num+1} (А4): Полный контент. Pre-crop + Pixel Analysis...")
                 
                 # Шаг А: Pre-crop (срезаем 1pt шума)
                 pre_crop_val = 3
