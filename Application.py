@@ -16,6 +16,9 @@ from utils.arranger import start_arrange
 
 from core.CabDwgProcessor import CabDwgProcessor
 
+import os
+import subprocess
+
 class Application:
     def __init__(self):
 
@@ -55,7 +58,7 @@ class Application:
         
 
         # Главное окно
-        with dpg.window(label="Главное окно", width=400, height=520):
+        with dpg.window(label="Главное окно", width=400, height=600):
            
             # Сохраняем идентификатор комбобокса
             self.device_combo = dpg.add_combo(
@@ -123,6 +126,16 @@ class Application:
                 callback=self.update_appx_shet,
                 width=300
             )
+            dpg.add_button(
+                label="Обновить приложения выбранных РЭ ШЭТ",
+                callback=self.update_shets,
+                width=300
+            )
+            dpg.add_button(
+                label="Посмотреть конфигурацию для РЭ ШЭТ",
+                callback=self.show_config_shets,
+                width=300
+            )
 
             dpg.add_spacer(height=5)
             dpg.add_separator() 
@@ -136,13 +149,13 @@ class Application:
             )
 
         # Окно логов
-        with dpg.window(label="Логи", width=800, height=400, pos=[400, 0], tag="log_window"):
-            with dpg.child_window(tag="log_container", height=325):
+        with dpg.window(label="Логи", width=800, height=530, pos=[400, 0], tag="log_window"):
+            with dpg.child_window(tag="log_container", height=500):
                 dpg.add_group(tag="log_content")  # для добавления строк
 
         Logger.set_container("log_content", "log_window")
         
-        dpg.create_viewport(title="OMNI-500 v.0.0.10  02.09.26", width=1215, height=600)
+        dpg.create_viewport(title="OMNI-500 v.0.0.11  03.09.26", width=1215, height=640)
         dpg.setup_dearpygui()
 
 
@@ -254,7 +267,28 @@ class Application:
         if self.device_data is None:
             self.init_device_data()        
         appx = CabDwgProcessor()
-        appx.run(device_data=self.device_data)
+        appx.run(self.device_data["path_to_latex_desc"])
+
+
+    def update_shets(self):
+        from utils.cabinets import process_cabinets
+        process_cabinets()
+
+
+    def show_config_shets(self):
+        """Открыть файл cabinets.cfg в Notepad"""
+        config_file = "cabinets.cfg"
+        
+        if not os.path.exists(config_file):
+            Logger.error(f"[ERROR] Файл {config_file} не найден")
+            return
+        
+        try:
+            # Открываем именно в Notepad
+            subprocess.Popen(['notepad.exe', config_file])
+            Logger.debug(f"Файл {config_file} открыт в Notepad")
+        except Exception as e:
+            Logger.error(f"Не удалось открыть файл: {e}")
 
 
 #####################################################################################################
