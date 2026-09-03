@@ -14,7 +14,6 @@ class Logger:
     
     # Режим работы: 'console', 'gui' или 'file'
     mode = 'gui'
-    
     # Настройки файла
     log_file_path = None
     log_file_enabled = False
@@ -34,7 +33,13 @@ class Logger:
     def set_mode(cls, mode):
         """Установить режим: 'console', 'gui' или 'file'"""
         cls.mode = mode
-    
+
+    @classmethod
+    def set_debug(cls, debug_status):
+        """Установить отладку: True или False"""
+        cls.visible_levels["DEBUG"] = debug_status
+
+
     @classmethod
     def set_container(cls, container_tag, window_tag):
         cls.log_container = container_tag
