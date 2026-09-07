@@ -43,15 +43,13 @@ def get_final_pdf_name(tex_file):
         c_val = code.group(1).strip() if code else "CODE"
         r_val = rev.group(1).strip() if rev else "v1"
         
-        # Убираем суффиксы типа -ЮИРЗ
-        #t_clean = re.sub(r'-[a-zA-Zа-яА-Я]+$', '', t_val)
-        
         invalid_chars = r'[<>:"/\\|?*]'
-        t_safe = re.sub(invalid_chars, '_', t_clean)
+        t_safe = re.sub(invalid_chars, '_', t_val)  # ← Теперь НЕ удаляем ничего
         c_safe = re.sub(invalid_chars, '_', c_val)
         
         r_clean = re.sub(r'[^a-zA-Z0-9._-]', '', r_val)
-        if not r_clean: r_clean = "v1.0"
+        if not r_clean: 
+            r_clean = "v1.0"
             
         name = f"{t_safe} ({c_safe})_v{r_clean}.pdf"
         return name
