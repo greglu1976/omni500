@@ -58,7 +58,7 @@ class Application:
         
 
         # Главное окно
-        with dpg.window(label="Главное окно", width=400, height=600):
+        with dpg.window(label="Главное окно", width=400, height=650):
            
             # Сохраняем идентификатор комбобокса
             self.device_combo = dpg.add_combo(
@@ -105,6 +105,21 @@ class Application:
             dpg.add_button(label="Ранжировать приложение с уставками", callback=self.arrange, width=300)  
             dpg.add_spacer(height=5)   
 
+            dpg.add_separator()
+            dpg.add_button(
+                label="Пакетное обновление РЭ устройств",
+                callback=self.update_ieds,
+                width=300
+            )
+            dpg.add_button(
+                label="Посмотреть конфигурацию для РЭ устройств",
+                callback=self.show_config_ieds,
+                width=300
+            )
+            dpg.add_spacer(height=5)  
+            dpg.add_separator()
+
+
             dpg.add_button(label="Обновить перечень сокращений в РУ", callback=self.renew_abbrs_ru, width=300)
             dpg.add_spacer(height=5)
             dpg.add_separator() 
@@ -149,13 +164,13 @@ class Application:
             )
 
         # Окно логов
-        with dpg.window(label="Логи", width=800, height=530, pos=[400, 0], tag="log_window"):
-            with dpg.child_window(tag="log_container", height=500):
+        with dpg.window(label="Логи", width=800, height=620, pos=[400, 0], tag="log_window"):
+            with dpg.child_window(tag="log_container", height=580):
                 dpg.add_group(tag="log_content")  # для добавления строк
 
         Logger.set_container("log_content", "log_window")
         
-        dpg.create_viewport(title="OMNI-500 v.0.0.11hf1  07.09.26", width=1215, height=640)
+        dpg.create_viewport(title="OMNI-500 v.0.0.12  07.09.26", width=1215, height=680)
         dpg.setup_dearpygui()
 
 
@@ -289,6 +304,29 @@ class Application:
             Logger.debug(f"Файл {config_file} открыт в Notepad")
         except Exception as e:
             Logger.error(f"Не удалось открыть файл: {e}")
+
+
+    def update_ieds(self):
+        from utils.ieds import process_ieds
+        process_ieds()
+
+
+    def show_config_ieds(self):
+        """Открыть файл ieds.cfg в Notepad"""
+        config_file = "ieds.cfg"
+        
+        if not os.path.exists(config_file):
+            Logger.error(f"[ERROR] Файл {config_file} не найден")
+            return
+        
+        try:
+            # Открываем именно в Notepad
+            subprocess.Popen(['notepad.exe', config_file])
+            Logger.debug(f"Файл {config_file} открыт в Notepad")
+        except Exception as e:
+            Logger.error(f"Не удалось открыть файл: {e}")
+
+
 
 
 #####################################################################################################
