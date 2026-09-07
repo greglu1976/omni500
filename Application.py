@@ -155,7 +155,7 @@ class Application:
 
         Logger.set_container("log_content", "log_window")
         
-        dpg.create_viewport(title="OMNI-500 v.0.0.11  03.09.26", width=1215, height=640)
+        dpg.create_viewport(title="OMNI-500 v.0.0.11hf1  07.09.26", width=1215, height=640)
         dpg.setup_dearpygui()
 
 
