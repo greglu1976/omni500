@@ -1224,7 +1224,11 @@ class CabDwgProcessor:
             # Возвращаем CropBox к исходному для корректных координат
             page.set_cropbox(media_box)
 
-
+            # ===== ВСТАВИТЬ ЗДЕСЬ =====
+            if final_bbox is None:
+                Logger.warning(f"Стр. {page_num+1}: пустая страница, пропуск")
+                continue
+            # ==========================
 
             if final_bbox:
                 page.set_cropbox(final_bbox)
