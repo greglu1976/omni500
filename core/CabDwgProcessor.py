@@ -27,7 +27,7 @@ class CabDwgProcessor:
     def __init__(self):
         # Конфигурация отступов как атрибут класса
         self.margins_config = {
-            'A4_portrait': (4, 4, 5, 19),    # верх, право, низ, лево
+            'A4_portrait': (6, 6, 6, 21),    # верх, право, низ, лево
             'A4_landscape': (0, 0, 0, 0),
             'A3_portrait': (5, 5, 5, 5),
             'A3_landscape': (5, 5, 5, 20),   # верх, право, низ, лево
@@ -45,7 +45,7 @@ class CabDwgProcessor:
         Logger.info(f"Выходной файл: {dxf_path}")
         
         if not os.path.exists(dwg_path):
-            Logger.error(f"\n❌ Ошибка: Входной файл не найден: {dwg_path}")
+            Logger.error(f"Ошибка: Входной файл не найден: {dwg_path}")
             return False
         
         try:
@@ -79,8 +79,8 @@ class CabDwgProcessor:
             if os.path.exists(dxf_path):
                 size = os.path.getsize(dxf_path)
                 Logger.info("DXF успешно создан!")
-                #Logger.info(f"Путь: {dxf_path}")
-                #Logger.info(f" Размер: {size} байт ({size/1024:.2f} KB)")
+                Logger.debug(f"Путь: {dxf_path}")
+                Logger.debug(f" Размер: {size} байт ({size/1024:.2f} KB)")
                 return True
             else:
                 Logger.error("Ошибка: DXF файл не создан")
@@ -149,7 +149,7 @@ class CabDwgProcessor:
             with open(dsd_path, 'w', encoding='cp1251') as f:
                 f.write(dsd_content)
                 
-            Logger.info(f"DSD-файл успешно создан: {dsd_path}")
+            Logger.success(f"DSD-файл успешно создан: {dsd_path}")
             Logger.info(f"Найдено листов: {len(layouts)}")
             Logger.info(f"Порядок вкладок: {layouts}")
             return True
@@ -341,7 +341,7 @@ class CabDwgProcessor:
                 bbox = get_block_bbox(entity)
                 if bbox:
                     stamp_bboxes.append(bbox)
-                    Logger.info(f"  Найден штамп: {entity.dxf.name}")
+                    Logger.debug(f"  Найден штамп: {entity.dxf.name}")
 
         #Logger.info(f"  Найдено штампов: {len(blocks_to_delete)}")
 
@@ -391,7 +391,7 @@ class CabDwgProcessor:
                         if abs(area - target_area) < area_tolerance:
                             entities_to_remove.add(entity)
                             area_deleted_count += 1
-                            #Logger.info(f"  Найдена рамка по площади: {area:.1f} (цель: {target_area})")
+                            Logger.debug(f"  Найдена рамка по площади: {area:.1f} (цель: {target_area})")
                             break
 
         #Logger.info(f"  Найдено дополнительных рамок по площади: {area_deleted_count}")
@@ -418,12 +418,12 @@ class CabDwgProcessor:
                 except Exception as e:
                     Logger.error(f"  Ошибка при проверке MTEXT: {e}")
 
-        Logger.info(f"  Найдено MTEXT для удаления: {mtext_deleted_count}")
+        Logger.debug(f"  Найдено MTEXT для удаления: {mtext_deleted_count}")
 
         # ==========================================
         # ВЫПОЛНЕНИЕ УДАЛЕНИЯ
         # ==========================================
-        Logger.info(f"Итого будет удалено объектов: {len(entities_to_remove)}")
+        Logger.debug(f"Итого будет удалено объектов: {len(entities_to_remove)}")
 
         deleted_count = 0
         for ent in entities_to_remove:
@@ -433,11 +433,11 @@ class CabDwgProcessor:
             except Exception as e:
                 Logger.error(f"  Ошибка при удалении {ent.dxftype()}: {e}")
 
-        Logger.info(f"Фактически удалено: {deleted_count} объектов")
+        Logger.debug(f"Фактически удалено: {deleted_count} объектов")
 
         try:
             doc.saveas("cleaned_dxf.dxf")
-            Logger.info("Файл сохранен как 'cleaned_dxf.dxf'")
+            Logger.debug("Файл сохранен как 'cleaned_dxf.dxf'")
         except Exception as e:
             Logger.error(f"Ошибка при сохранении: {e}")
 
@@ -460,8 +460,8 @@ class CabDwgProcessor:
         with open(scr_path, 'w', encoding='cp1251') as f:
             f.write(script_content)
         
-        Logger.info(f"Создан SCR: {scr_path}")
-        Logger.info(f"Используется DSD: {dsd_path}")
+        Logger.debug(f"Создан SCR: {scr_path}")
+        Logger.debug(f"Используется DSD: {dsd_path}")
 
 
         # Меняем кодировку на cp866, чтобы русские логи читались нормально
@@ -477,7 +477,7 @@ class CabDwgProcessor:
 
         if "Нет ошибок или предупреждений" in result.stdout or "no errors or warnings" in result.stdout.lower():
             #prLogger.infoint("PDF успешно создан!")
-            Logger.info("PDF успешно создан!")
+            Logger.success("PDF успешно создан!")
         else:
             pass
             #print("Возможны ошибки. Проверьте лог выше.")
@@ -545,7 +545,7 @@ class CabDwgProcessor:
             with open(output_json, 'w', encoding='utf-8') as f:
                 json.dump(temp_groups, f, ensure_ascii=False, indent=4)
                 
-            Logger.info(f"Файл {output_json} успешно создан!")
+            Logger.debug(f"Файл {output_json} успешно создан!")
             Logger.info(f"Структура страниц: {json.dumps(temp_groups, ensure_ascii=False)}")
 
         except Exception as e:
@@ -607,204 +607,6 @@ class CabDwgProcessor:
             return None
 
 
-
-
-
-
-    def smart_crop_pdf2(self, input_pdf, pages_config=None):
-        """
-        Умная обрезка PDF с автоматическим определением формата и ориентации
-        
-        Args:
-            input_pdf: путь к входному PDF файлу
-            pages_config: словарь конфигурации страниц (если None, используется стандартное сохранение)
-        """
-        
-        # Определяем целевые папки на основе base_path
-        specification_dir = os.path.join(self.base_path, "Приложение. Спецификация/_latex/img")
-        e3_dir = os.path.join(self.base_path, "Приложение. Схема Э3/_latex/img")
-        e4_dir = os.path.join(self.base_path, "Приложение. Схема Э4.1/_latex/img")
-        pn_dir = os.path.join(self.base_path, "Приложение. Перечень надписей/_latex/img")  # Резерв
-        
-        # --- НАЧАЛО ИЗМЕНЕНИЙ: Очистка папок ---
-        target_folders = [specification_dir, e3_dir, e4_dir]
-        
-        Logger.info("🧹 Очистка целевых папок от старых PDF...")
-        for folder in target_folders:
-            if os.path.exists(folder):
-                # Удаляем только файлы с расширением .pdf
-                for f in os.listdir(folder):
-                    if f.lower().endswith('.pdf'):
-                        file_path = os.path.join(folder, f)
-                        try:
-                            os.remove(file_path)
-                            Logger.debug(f"Удален старый файл: {f}") # Можно раскомментировать для детального лога
-                        except Exception as e:
-                            Logger.warning(f"Не удалось удалить {f}: {e}")
-            else:
-                # Если папки нет, создаем её
-                os.makedirs(folder, exist_ok=True)
-        # --- КОНЕЦ ИЗМЕНЕНИЙ ---
-        
-        doc = fitz.open(input_pdf)
-        total_pages = len(doc)
-        
-        Logger.info(f"УМНАЯ ОБРЕЗКА PDF: {input_pdf}")
-        
-        # Если передана конфигурация страниц, создаем обратный маппинг page_num -> prefix
-        page_prefix_map = {}
-        if pages_config:
-            for prefix, page_nums in pages_config.items():
-                for page_num in page_nums:
-                    page_prefix_map[page_num] = prefix
-            
-            Logger.info(f"Конфигурация страниц:")
-            for prefix, page_nums in pages_config.items():
-                Logger.info(f"  {prefix}: страницы {page_nums}")
-
-        
-        for page_num in range(total_pages):
-            page = doc[page_num]
-            
-            original_rotation = page.rotation
-            original_rect = page.rect
-            original_width_mm = original_rect.width * 0.352778
-            original_height_mm = original_rect.height * 0.352778
-            
-            # Определяем формат на основе ИСХОДНЫХ параметров
-            format_key = self.detect_format(original_width_mm, original_height_mm, original_rotation)
-            
-            # Получаем отступы
-            if format_key in self.margins_config:
-                top_mm, right_mm, bottom_mm, left_mm = self.margins_config[format_key]
-            else:
-                top_mm, right_mm, bottom_mm, left_mm = self.margins_config.get('default', (6, 6, 6, 6))
-            
-            # Конвертируем в points
-            top = top_mm * self.mm_to_points
-            right = right_mm * self.mm_to_points
-            bottom = bottom_mm * self.mm_to_points
-            left = left_mm * self.mm_to_points
-            
-            # Если страница повернута, сначала сбрасываем поворот
-            if original_rotation != 0:
-                page.set_rotation(0)
-                current_rect = page.rect
-            
-            # Теперь применяем отступы к текущему rect (уже без поворота)
-            current_rect = page.rect
-            
-            # Для страниц с поворотом применяем отступы по-другому
-            if original_rotation == 90:
-                crop_rect = fitz.Rect(
-                    current_rect.x0 + top,      # лево = бывший верх
-                    current_rect.y0 + right,    # верх = бывшее право
-                    current_rect.x1 - bottom,   # право = бывший низ
-                    current_rect.y1 - left      # низ = бывшее лево
-                )
-            elif original_rotation == 270:
-                crop_rect = fitz.Rect(
-                    current_rect.x0 + bottom,   # лево = бывший низ
-                    current_rect.y0 + left,     # верх = бывшее лево
-                    current_rect.x1 - top,      # право = бывший верх
-                    current_rect.y1 - right     # низ = бывшее право
-                )
-            else:
-                crop_rect = fitz.Rect(
-                    current_rect.x0 + left,
-                    current_rect.y0 + top,
-                    current_rect.x1 - right,
-                    current_rect.y1 - bottom
-                )
-            
-            # Проверяем, что crop_rect не выходит за пределы current_rect
-            if (crop_rect.x0 < current_rect.x0 or crop_rect.y0 < current_rect.y0 or
-                crop_rect.x1 > current_rect.x1 or crop_rect.y1 > current_rect.y1):
-                crop_rect = crop_rect.intersect(current_rect)
-            
-            # Проверяем, есть ли реальная обрезка
-            if (crop_rect.x0 > current_rect.x0 or crop_rect.y0 > current_rect.y0 or
-                crop_rect.x1 < current_rect.x1 or crop_rect.y1 < current_rect.y1):
-                page.set_cropbox(crop_rect)
-            
-            # Возвращаем оригинальный поворот
-            if original_rotation != 0:
-                page.set_rotation(original_rotation)
-            
-            # Сохраняем страницу
-            new_doc = fitz.open()
-            new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
-            
-            # Определяем имя файла и папку
-            if pages_config and (page_num + 1) in page_prefix_map:
-                # Используем конфигурацию из JSON
-                prefix = page_prefix_map[page_num + 1]
-                # Находим индекс этой страницы в списке для данного префикса
-                page_list = pages_config[prefix]
-                index_in_list = page_list.index(page_num + 1) + 1
-                
-                # ОПРЕДЕЛЯЕМ ПАПКУ ДЛЯ СОХРАНЕНИЯ НА ОСНОВЕ ТЕГА
-                if prefix == 'ПН':
-                    # Проверка на ПН - показываем информацию, но НЕ сохраняем
-                    output_subfolder = pn_dir
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f" СОХРАНЕНИЕ ПРОПУЩЕНО (ПН - зарезервировано)")
-                    new_doc.close()
-                    continue  # Пропускаем сохранение
-                    
-                elif prefix == 'ПЭ':
-                    # ПЭ сохраняется в папку Спецификации
-                    output_subfolder = specification_dir
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"Префикс: {prefix} → Спецификация")
-                    
-                elif prefix == 'СЭП':
-                    # СЭП сохраняется в папку Схема Э3
-                    output_subfolder = e3_dir
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"Префикс: {prefix} → Схема Э3")
-                    
-                elif prefix == 'СЭС':
-                    # СЭС сохраняется в папку Схема Э4.1
-                    output_subfolder = e4_dir
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"Префикс: {prefix} → Схема Э4.1")
-                    
-                else:
-                    # Другие теги - используем стандартную логику или base_path
-                    output_subfolder = self.base_path
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"Префикс: {prefix} (стандартное сохранение)")
-                
-                output_path = os.path.join(output_subfolder, output_filename)
-                
-                Logger.info(f"Папка: {output_subfolder}")
-                Logger.info(f"Имя файла: {output_filename}")
-                
-                new_doc.save(output_path)
-                new_doc.close()
-                
-                Logger.info(f"Сохранено: {output_path}")
-                    
-            else:
-                # Стандартное сохранение по номеру страницы в base_path
-                output_filename = f"{page_num + 1}.pdf"
-                output_subfolder = self.base_path
-                output_path = os.path.join(output_subfolder, output_filename)
-                
-                Logger.info(f"Папка: {output_subfolder}")
-                Logger.info(f"Имя файла: {output_filename}")
-                
-                new_doc.save(output_path)
-                new_doc.close()
-                
-                Logger.info(f"Сохранено: {output_path}")
-        
-        doc.close()
-        Logger.info(f"Готово! Обработано {total_pages} страниц")
-
-
-
     def del_files(self, files_list):
 
         """
@@ -836,12 +638,13 @@ class CabDwgProcessor:
             Logger.warning(f"Остались файлы: {', '.join([os.path.basename(f) for f in remaining])}")
             Logger.info("Возможно, файлы используются другими программами (закройте AutoCAD)")
         else:
-            Logger.info("Все файлы успешно удалены!")
+            Logger.success("Все файлы успешно удалены!")
 
 
-    def run(self, device_data):
+    def run(self, base_path):
 
-        self.base_path = device_data["path_to_latex_desc"]
+        self.base_path = base_path
+
         doc_dir = os.path.join(self.base_path, "Документация")
 
         # Ищем все PDF файлы в папке
@@ -856,9 +659,7 @@ class CabDwgProcessor:
             return None
 
         path =  os.path.join(doc_dir, pdf_files[0])
-
-        Logger.info(f"Найден путь к исходному dwg {path}")         
-        # Возвращаем полный путь к единственному файлу
+        Logger.info(f"Найден путь к исходному dwg {path}") 
 
         # Запуск
 
@@ -876,13 +677,13 @@ class CabDwgProcessor:
         dxf_file_clean = current_dir/ "cleaned_dxf.dxf"
 
 
-        Logger.info("========================== ШАГ 1 ========================")
+        Logger.info("========================== ШАГ 1 ПРЕОБРАЗУЕМ DWG в DXF ========================")
 
         self.convert_dwg_to_dxf_com(dwg_file, dxf_file)  
         Logger.info("Ожидание освобождения AutoCAD...")
         time.sleep(3)
 
-        Logger.info("========================== ШАГ 2 ========================")
+        Logger.info("========================== ШАГ 2 СОЗДАЕМ DSD ========================")
         self.create_dsd_from_dxf(dxf_file, dsd_file, pdf_file)
         Logger.info("Ожидание освобождения AutoCAD...")
         time.sleep(3)
@@ -930,235 +731,7 @@ class CabDwgProcessor:
 
         self.del_files(files_to_delete)
 
-        Logger.info("========================== ПРИЛОЖЕНИЯ ОБНОВЛЕНЫ  ========================")
-
-
-
-
-
-
-
-    def smart_crop_pdf(self, input_pdf, pages_config=None):
-        """
-        Умная обрезка PDF с автоматическим определением формата и ориентации
-        Теперь с автоматической обрезкой по содержимому!
-        
-        Args:
-            input_pdf: путь к входному PDF файлу
-            pages_config: словарь конфигурации страниц (если None, используется стандартное сохранение)
-        """
-        
-        # Определяем целевые папки на основе base_path
-        specification_dir = os.path.join(self.base_path, "Приложение. Спецификация/_latex/img")
-        e3_dir = os.path.join(self.base_path, "Приложение. Схема Э3/_latex/img")
-        e4_dir = os.path.join(self.base_path, "Приложение. Схема Э4.1/_latex/img")
-        pn_dir = os.path.join(self.base_path, "Приложение. Перечень надписей/_latex/img")  # Резерв
-        
-        # --- Очистка папок ---
-        target_folders = [specification_dir, e3_dir, e4_dir]
-        
-        Logger.info("🧹 Очистка целевых папок от старых PDF...")
-        for folder in target_folders:
-            if os.path.exists(folder):
-                for f in os.listdir(folder):
-                    if f.lower().endswith('.pdf'):
-                        file_path = os.path.join(folder, f)
-                        try:
-                            os.remove(file_path)
-                            Logger.debug(f"Удален старый файл: {f}")
-                        except Exception as e:
-                            Logger.warning(f"Не удалось удалить {f}: {e}")
-            else:
-                os.makedirs(folder, exist_ok=True)
-        
-        doc = fitz.open(input_pdf)
-        total_pages = len(doc)
-        
-        Logger.info(f"УМНАЯ ОБРЕЗКА PDF: {input_pdf}")
-        
-        # Если передана конфигурация страниц, создаем обратный маппинг page_num -> prefix
-        page_prefix_map = {}
-        if pages_config:
-            for prefix, page_nums in pages_config.items():
-                for page_num in page_nums:
-                    page_prefix_map[page_num] = prefix
-            
-            Logger.info(f"Конфигурация страниц:")
-            for prefix, page_nums in pages_config.items():
-                Logger.info(f"  {prefix}: страницы {page_nums}")
-        
-        for page_num in range(total_pages):
-            page = doc[page_num]
-            
-            # ============================================
-            # НОВАЯ ЛОГИКА: Автоматическая обрезка по содержимому
-            # ============================================
-            
-            # 1. Сохраняем исходный поворот
-            original_rotation = page.rotation
-            original_rect = page.rect
-            original_width_mm = original_rect.width * 0.352778
-            original_height_mm = original_rect.height * 0.352778
-            
-            Logger.info(f"\n--- Страница {page_num + 1} ---")
-            Logger.info(f"Исходный поворот: {original_rotation}°")
-            Logger.info(f"Исходный размер: {original_width_mm:.1f} x {original_height_mm:.1f} мм")
-            
-            # 2. Убираем обрезку (устанавливаем все боксы в MediaBox)
-            # Временно сбрасываем поворот для корректной работы
-            if original_rotation != 0:
-                page.set_rotation(0)
-            
-            media_box = page.mediabox
-            page.set_cropbox(media_box)
-            page.set_trimbox(media_box)
-            page.set_bleedbox(media_box)
-            page.set_artbox(media_box)
-            
-            # 3. Находим границы содержимого
-            content_bbox = self._find_content_bbox(page)
-            
-            if content_bbox is None:
-                # Если не удалось найти содержимое, используем пиксельный метод
-                Logger.warning("⚠️ Не удалось найти содержимое через элементы, пробую пиксельный метод...")
-                content_bbox = self._auto_crop_by_pixels(page, padding=0)
-            
-            if content_bbox is not None:
-                # Небольшой технический отступ (5 pt) чтобы не резать линии на краю
-                padding = 5
-                content_bbox = fitz.Rect(
-                    max(0, content_bbox.x0 - padding),
-                    max(0, content_bbox.y0 - padding),
-                    min(page.rect.width, content_bbox.x1 + padding),
-                    min(page.rect.height, content_bbox.y1 + padding)
-                )
-                
-                # === НОРМАЛИЗАЦИЯ: отступ только по минимальной оси ===
-                content_bbox = self._normalize_page(page, content_bbox)
-                
-                # Устанавливаем новый CropBox
-                page.set_cropbox(content_bbox)
-                page.set_trimbox(content_bbox)
-                page.set_bleedbox(content_bbox)
-                page.set_artbox(content_bbox)
-                
-                Logger.info(f"✅ Авто-обрезка + нормализация выполнены")
-                Logger.info(f"   Новый размер: {content_bbox.width * 0.352778:.1f} x {content_bbox.height * 0.352778:.1f} мм")
-            else:
-                Logger.warning("⚠️ Не удалось определить границы содержимого, использую стандартные отступы")
-                
-                # Определяем формат на основе ИСХОДНЫХ параметров
-                format_key = self.detect_format(original_width_mm, original_height_mm, original_rotation)
-                
-                # Получаем отступы
-                if format_key in self.margins_config:
-                    top_mm, right_mm, bottom_mm, left_mm = self.margins_config[format_key]
-                else:
-                    top_mm, right_mm, bottom_mm, left_mm = self.margins_config.get('default', (6, 6, 6, 6))
-                
-                # Конвертируем в points
-                top = top_mm * self.mm_to_points
-                right = right_mm * self.mm_to_points
-                bottom = bottom_mm * self.mm_to_points
-                left = left_mm * self.mm_to_points
-                
-                current_rect = page.rect
-                
-                # Для страниц с поворотом применяем отступы по-другому
-                if original_rotation == 90:
-                    crop_rect = fitz.Rect(
-                        current_rect.x0 + top,
-                        current_rect.y0 + right,
-                        current_rect.x1 - bottom,
-                        current_rect.y1 - left
-                    )
-                elif original_rotation == 270:
-                    crop_rect = fitz.Rect(
-                        current_rect.x0 + bottom,
-                        current_rect.y0 + left,
-                        current_rect.x1 - top,
-                        current_rect.y1 - right
-                    )
-                else:
-                    crop_rect = fitz.Rect(
-                        current_rect.x0 + left,
-                        current_rect.y0 + top,
-                        current_rect.x1 - right,
-                        current_rect.y1 - bottom
-                    )
-                
-                # Проверяем, что crop_rect не выходит за пределы
-                if (crop_rect.x0 < current_rect.x0 or crop_rect.y0 < current_rect.y0 or
-                    crop_rect.x1 > current_rect.x1 or crop_rect.y1 > current_rect.y1):
-                    crop_rect = crop_rect.intersect(current_rect)
-                
-                page.set_cropbox(crop_rect)
-                Logger.info(f"✅ Применены стандартные отступы: T:{top_mm} R:{right_mm} B:{bottom_mm} L:{left_mm} мм")
-            
-            # 4. Восстанавливаем исходный поворот
-            if original_rotation != 0:
-                page.set_rotation(original_rotation)
-                Logger.info(f"🔄 Восстановлен поворот: {original_rotation}°")
-            
-            # 5. Сохраняем страницу в отдельный PDF
-            new_doc = fitz.open()
-            new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
-            
-            # Определяем имя файла и папку
-            if pages_config and (page_num + 1) in page_prefix_map:
-                prefix = page_prefix_map[page_num + 1]
-                page_list = pages_config[prefix]
-                index_in_list = page_list.index(page_num + 1) + 1
-                
-                # Определяем папку для сохранения на основе тега
-                if prefix == 'ПН':
-                    output_subfolder = pn_dir
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"⚠️ СОХРАНЕНИЕ ПРОПУЩЕНО (ПН - зарезервировано)")
-                    new_doc.close()
-                    continue
-                    
-                elif prefix == 'ПЭ':
-                    output_subfolder = specification_dir
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"Префикс: {prefix} → Спецификация")
-                    
-                elif prefix == 'СЭП':
-                    output_subfolder = e3_dir
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"Префикс: {prefix} → Схема Э3")
-                    
-                elif prefix == 'СЭС':
-                    output_subfolder = e4_dir
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"Префикс: {prefix} → Схема Э4.1")
-                    
-                else:
-                    output_subfolder = self.base_path
-                    output_filename = f"{prefix}_{index_in_list}.pdf"
-                    Logger.info(f"Префикс: {prefix} (стандартное сохранение)")
-                
-                output_path = os.path.join(output_subfolder, output_filename)
-                Logger.info(f"Сохранение: {output_path}")
-                
-                new_doc.save(output_path)
-                new_doc.close()
-                Logger.info(f"✅ Сохранено: {output_path}")
-                    
-            else:
-                # Стандартное сохранение по номеру страницы
-                output_filename = f"{page_num + 1}.pdf"
-                output_subfolder = self.base_path
-                output_path = os.path.join(output_subfolder, output_filename)
-                
-                Logger.info(f"Сохранение: {output_path}")
-                new_doc.save(output_path)
-                new_doc.close()
-                Logger.info(f"✅ Сохранено: {output_path}")
-        
-        doc.close()
-        Logger.info(f"\n🎉 Готово! Обработано {total_pages} страниц")
-
+        Logger.success("========================== ПРИЛОЖЕНИЯ ОБНОВЛЕНЫ  ========================")
 
 
 
@@ -1167,161 +740,256 @@ class CabDwgProcessor:
     # ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ АВТО-ОБРЕЗКИ
     # ============================================
 
+
+
     def _normalize_page(self, page, content_box):
         """
-        Нормализует CropBox: отступ добавляется ТОЛЬКО по минимальной оси.
-        По другой оси границы остаются плотно к содержимому.
+        Нормализует CropBox по НАИБОЛЬШЕЙ стороне для максимального заполнения.
+        Позволяет гибко настраивать отступы для Landscape и Portrait.
         """
+
+        # === ДОБАВЛЕНА ПРОВЕРКА НА ПУСТОЙ ЛИСТ ===
+        if content_box is None:
+            Logger.warning("Пропуск страницы: контент не найден (пустая страница или ошибка анализа)")
+            return None
+
+
         media = page.mediabox
         
+        # Определяем ориентацию
+        is_landscape = media.width > media.height
+        
+        # --- НАСТРОЙКИ ОТСТУПОВ (в points) ---
+        # 1 pt ≈ 0.35 мм
+        
+        if is_landscape:
+            # === LANDSCAPE (Альбомная) ===
+            base_margin = 15      # Лево, Право, Низ
+            bind_margin = 15      # Верх (или можно сделать Left, если нужно под сшивку слева)
+            
+            # Виртуальный бокс: большой отступ сверху, остальные стандартные
+            virtual_box = fitz.Rect(
+                media.x0 + base_margin,   # Лево
+                media.y0 + bind_margin,   # Верх (увеличенный)
+                media.x1 - base_margin,   # Право
+                media.y1 - base_margin    # Низ
+            )
+            Logger.debug(f"   Ориентация: LANDSCAPE → Top={bind_margin}, Others={base_margin}")
+            
+        else:
+            # === PORTRAIT (Книжная) ===
+            base_margin = 10      # Верх, Право, Низ
+            bind_margin = 10      # Лево (под сшивку)
+            
+            # Виртуальный бокс: большой отступ слева, остальные стандартные
+            virtual_box = fitz.Rect(
+                media.x0 + bind_margin,   # Лево (увеличенный)
+                media.y0 + base_margin,   # Верх
+                media.x1 - base_margin,   # Право
+                media.y1 - base_margin    # Низ
+            )
+            Logger.debug(f"   Ориентация: PORTRAIT → Left={bind_margin}, Others={base_margin}")
+
         c_w = content_box.width
         c_h = content_box.height
         
-        free_w = media.width - c_w
-        free_h = media.height - c_h
+        # Считаем свободное место внутри ВИРТУАЛЬНОГО box
+        free_w = virtual_box.width - c_w
+        free_h = virtual_box.height - c_h
         
-        min_free = min(free_w, free_h)
+        # === НОРМАЛИЗАЦИЯ ПО МАКСИМУМУ ===
+        max_free = max(free_w, free_h)
         
-        # Вычитаем запас (20 pt)
-        total_padding = max(0, min_free - 20)
+        # Заполняем всё доступное пространство (можно вычесть небольшой зазор, например 5pt, если нужно)
+        total_padding = max(0, max_free) 
         offset = total_padding / 2
-        
-        if free_w <= free_h:
+        #print(offset) 
+        if offset < 100:
+            offset = 0  
+        if free_w >= free_h:
+            # Растягиваем по ширине
             offset_x = offset
             offset_y = 0
-            Logger.debug(f"   Нормализация: минимум по ШИРИНЕ. Отступ X={offset_x:.1f}, Y=0")
+            Logger.debug(f"   Нормализация по МАКСИМУМУ (ШИРИНА). Отступ X={offset_x:.1f}")
         else:
+            # Растягиваем по высоте
             offset_x = 0
             offset_y = offset
-            Logger.debug(f"   Нормализация: минимум по ВЫСОТЕ. Отступ X=0, Y={offset_y:.1f}")
+            Logger.debug(f"   Нормализация по МАКСИМУМУ (ВЫСОТА). Отступ Y={offset_y:.1f}")
         
         new_x0 = content_box.x0 - offset_x
         new_y0 = content_box.y0 - offset_y
         new_x1 = content_box.x1 + offset_x
         new_y1 = content_box.y1 + offset_y
         
-        # Защита от выхода за границы MediaBox
-        new_x0 = max(media.x0, new_x0)
-        new_y0 = max(media.y0, new_y0)
-        new_x1 = min(media.x1, new_x1)
-        new_y1 = min(media.y1, new_y1)
-
-        # Защита от выхода за границы MediaBox
         new_rect = fitz.Rect(new_x0, new_y0, new_x1, new_y1)
-        new_rect = new_rect.intersect(media)  # ← ДОБАВЛЕНО: финальная обрезка
+        
+        # Финальная защита: intersect с виртуальным box гарантирует, 
+        # что мы не выйдем за пределы безопасной зоны
+        final_rect = new_rect.intersect(virtual_box)
+        
+        Logger.debug(f"media: {media}")
+        Logger.debug(f"virtual_box: {virtual_box}")
+        Logger.debug(f"content: {content_box}")
+        Logger.debug(f"final_rect: {final_rect}")
 
-        return new_rect
+        return final_rect
+
+
+    def _normalize_page2(self, page, content_box):
+        """
+        Гибридная нормализация:
+        - A3 (любой) и A4 Landscape: по МАКСИМУМУ (для заполнения).
+        - A4 Portrait: по МИНИМУМУ (для сохранения пропорций и защиты от обрезки).
+        """
+        
+        media = page.mediabox
+        
+        # Определяем ориентацию и формат
+        width_mm = media.width * 0.352778
+        height_mm = media.height * 0.352778
+        is_landscape = media.width > media.height
+        
+        # Простая проверка на A4 (допуск 10 мм)
+        is_a4_portrait = (not is_landscape) and (abs(width_mm - 210) < 10) and (abs(height_mm - 297) < 10)
+
+        # --- НАСТРОЙКИ ОТСТУПОВ ---
+        if is_landscape:
+            # LANDSCAPE (A3/A4 гориз.)
+            base_margin = 15
+            bind_margin = 40  # Большой отступ сверху
+            
+            virtual_box = fitz.Rect(
+                media.x0 + base_margin,
+                media.y0 + bind_margin,
+                media.x1 - base_margin,
+                media.y1 - base_margin
+            )
+            normalize_by_max = True # Используем максимум для заполнения
+            Logger.debug(f"   Ориентация: LANDSCAPE → Max Norm")
+            
+        elif is_a4_portrait:
+            # A4 PORTRAIT (Вертикальный) - более щадящий режим
+            base_margin = 10  # Уменьшаем базовый отступ
+            bind_margin = 20  # Уменьшаем отступ под сшивку
+            
+            virtual_box = fitz.Rect(
+                media.x0 + bind_margin,
+                media.y0 + base_margin,
+                media.x1 - base_margin,
+                media.y1 - base_margin
+            )
+            normalize_by_max = False # Используем минимум для безопасности
+            Logger.debug(f"   Ориентация: A4 PORTRAIT → Min Norm")
+            
+        else:
+            # A3 PORTRAIT (Вертикальный) - как было отлично
+            base_margin = 20
+            bind_margin = 40
+            
+            virtual_box = fitz.Rect(
+                media.x0 + bind_margin,
+                media.y0 + base_margin,
+                media.x1 - base_margin,
+                media.y1 - base_margin
+            )
+            normalize_by_max = True
+            Logger.debug(f"   Ориентация: A3 PORTRAIT → Max Norm")
+
+        c_w = content_box.width
+        c_h = content_box.height
+        
+        free_w = virtual_box.width - c_w
+        free_h = virtual_box.height - c_h
+        
+        if normalize_by_max:
+            # === НОРМАЛИЗАЦИЯ ПО МАКСИМУМУ ===
+            max_free = max(free_w, free_h)
+            total_padding = max(0, max_free)
+            offset = total_padding / 2
+            
+            if free_w >= free_h:
+                offset_x = offset
+                offset_y = 0
+                Logger.debug(f"   Max Norm: ШИРИНА. X={offset_x:.1f}")
+            else:
+                offset_x = 0
+                offset_y = offset
+                Logger.debug(f"   Max Norm: ВЫСОТА. Y={offset_y:.1f}")
+                
+        else:
+            # === НОРМАЛИЗАЦИЯ ПО МИНИМУМУ (для A4 Portrait) ===
+            min_free = min(free_w, free_h)
+            total_padding = max(0, min_free)
+            offset = total_padding / 2
+            
+            if free_w <= free_h:
+                offset_x = offset
+                offset_y = 0
+                Logger.debug(f"   Min Norm: ШИРИНА. X={offset_x:.1f}")
+            else:
+                offset_x = 0
+                offset_y = offset
+                Logger.debug(f"   Min Norm: ВЫСОТА. Y={offset_y:.1f}")
+
+        new_x0 = content_box.x0 - offset_x
+        new_y0 = content_box.y0 - offset_y
+        new_x1 = content_box.x1 + offset_x
+        new_y1 = content_box.y1 + offset_y
+        
+        new_rect = fitz.Rect(new_x0, new_y0, new_x1, new_y1)
+        
+        # Финальная защита
+        final_rect = new_rect.intersect(virtual_box)
+        
+        Logger.debug(f"media: {media}")
+        Logger.debug(f"virtual_box: {virtual_box}")
+        Logger.debug(f"content: {content_box}")
+        Logger.debug(f"final_rect: {final_rect}")
+
+        return final_rect
 
 
 
 
     def _find_content_bbox(self, page):
-        """
-        Находит bounding box всего содержимого страницы (всех элементов)
-        """
-        
+        """Находит bounding box всего содержимого страницы"""
         rects = []
-        
-        # 1. Текст
-        text_instances = page.get_text_words()
-        for word in text_instances:
+        # Текст
+        for word in page.get_text_words():
             rects.append(fitz.Rect(word[0], word[1], word[2], word[3]))
-        
-        # 2. Изображения
-        image_list = page.get_images(full=True)
-        for img in image_list:
-            img_rects = page.get_image_rects(img[0])
-            rects.extend(img_rects)
-        
-        # 3. Векторная графика
+        # Изображения
+        for img in page.get_images(full=True):
+            rects.extend(page.get_image_rects(img[0]))
+        # Графика
         try:
-            drawings = page.get_drawings()
-            for path in drawings:
-                if path.get("rect"):
-                    rects.append(fitz.Rect(path["rect"]))
-                
+            for path in page.get_drawings():
+                if path.get("rect"): rects.append(fitz.Rect(path["rect"]))
                 if path.get("items"):
                     for item in path["items"]:
-                        try:
-                            if len(item) < 2:
-                                continue
-                                
-                            cmd = item[0] if isinstance(item, tuple) else item[0]
-                            
-                            if cmd == "l" and len(item) >= 5:
-                                x0, y0, x1, y1 = item[1], item[2], item[3], item[4]
-                                rects.append(fitz.Rect(
-                                    min(x0, x1), min(y0, y1),
-                                    max(x0, x1), max(y0, y1)
-                                ))
-                            elif cmd == "re" and len(item) >= 5:
-                                rects.append(fitz.Rect(item[1], item[2], item[1] + item[3], item[2] + item[4]))
-                            elif cmd == "c" and len(item) >= 9:
-                                x_coords = [item[1], item[3], item[5], item[7]]
-                                y_coords = [item[2], item[4], item[6], item[8]]
-                                rects.append(fitz.Rect(
-                                    min(x_coords), min(y_coords),
-                                    max(x_coords), max(y_coords)
-                                ))
-                            elif cmd == "q" and len(item) >= 7:
-                                x_coords = [item[1], item[3], item[5]]
-                                y_coords = [item[2], item[4], item[6]]
-                                rects.append(fitz.Rect(
-                                    min(x_coords), min(y_coords),
-                                    max(x_coords), max(y_coords)
-                                ))
-                        except (IndexError, TypeError, ValueError):
-                            continue
-        except Exception as e:
-            Logger.debug(f"Ошибка при обработке графики: {e}")
+                        if not isinstance(item, tuple) or len(item) < 2: continue
+                        cmd = item[0]
+                        if cmd == "l" and len(item) >= 5:
+                            rects.append(fitz.Rect(min(item[1],item[3]), min(item[2],item[4]), max(item[1],item[3]), max(item[2],item[4])))
+                        elif cmd == "re" and len(item) >= 5:
+                            rects.append(fitz.Rect(item[1], item[2], item[1]+item[3], item[2]+item[4]))
+        except: pass
         
-        # 4. Аннотации
-        try:
-            for annot in page.annots():
-                rects.append(annot.rect)
-        except Exception:
-            pass
-        
-        # 5. Widgets
-        try:
-            for widget in page.widgets():
-                rects.append(widget.rect)
-        except Exception:
-            pass
-        
-        if not rects:
-            return None
-        
-        try:
-            x0 = min(r.x0 for r in rects)
-            y0 = min(r.y0 for r in rects)
-            x1 = max(r.x1 for r in rects)
-            y1 = max(r.y1 for r in rects)
-            return fitz.Rect(x0, y0, x1, y1)
-        except ValueError:
-            return None
-    def _auto_crop_by_pixels(self, page, padding=0, dpi=72, white_threshold=240):
-        """
-        Обрезает страницу на основе анализа пикселей (для страниц с графикой)
-        """
-        
-        Logger.info(f"🔍 Анализирую пиксели с разрешением {dpi} DPI...")
-        
+        if not rects: return None
+        x0 = min(r.x0 for r in rects); y0 = min(r.y0 for r in rects)
+        x1 = max(r.x1 for r in rects); y1 = max(r.y1 for r in rects)
+        return fitz.Rect(x0, y0, x1, y1)
+
+    def _auto_crop_by_pixels(self, page, padding=5, dpi=150, white_threshold=250):
+        """Обрезает страницу на основе анализа пикселей (высокая точность)"""
         pix = page.get_pixmap(dpi=dpi, colorspace="gray")
         samples = pix.samples
-        width = pix.width
-        height = pix.height
+        width = pix.width; height = pix.height
         
-        Logger.debug(f"Размер изображения: {width}x{height} пикселей")
+        min_x, min_y = width, height; max_x, max_y = 0, 0; found = False
         
-        min_x, min_y = width, height
-        max_x, max_y = 0, 0
-        found = False
-        
-        step = 2
-        
-        for y in range(0, height, step):
-            for x in range(0, width, step):
+        for y in range(0, height, 1): # Шаг 1 для максимальной точности
+            for x in range(0, width, 1):
                 idx = y * width + x
                 if idx < len(samples) and samples[idx] < white_threshold:
                     found = True
@@ -1330,32 +998,270 @@ class CabDwgProcessor:
                     if y < min_y: min_y = y
                     if y > max_y: max_y = y
         
-        if not found:
-            Logger.warning("⚠️ Страница пуста (все белое)")
-            return None
+        if not found: return None
         
-        scale_x = page.rect.width / width
-        scale_y = page.rect.height / height
-        
-        x0 = min_x * scale_x
-        y0 = min_y * scale_y
-        x1 = (max_x + 1) * scale_x
-        y1 = (max_y + 1) * scale_y
+        scale_x = page.rect.width / width; scale_y = page.rect.height / height
+        x0 = min_x * scale_x; y0 = min_y * scale_y
+        x1 = (max_x + 1) * scale_x; y1 = (max_y + 1) * scale_y
         
         content_bbox = fitz.Rect(x0, y0, x1, y1)
         
-        Logger.info(f"📐 Найдены границы по пикселям: {content_bbox}")
-        Logger.info(f"   Ширина: {content_bbox.width:.2f} pt")
-        Logger.info(f"   Высота: {content_bbox.height:.2f} pt")
-        
+        # Применяем финальный отступ
         if padding > 0:
             content_bbox = fitz.Rect(
-                max(0, content_bbox.x0 - padding),
-                max(0, content_bbox.y0 - padding),
-                min(page.rect.width, content_bbox.x1 + padding),
-                min(page.rect.height, content_bbox.y1 + padding)
+                max(0, content_bbox.x0 - padding), max(0, content_bbox.y0 - padding),
+                min(page.rect.width, content_bbox.x1 + padding), min(page.rect.height, content_bbox.y1 + padding)
             )
-            Logger.info(f"   С отступом {padding}pt: {content_bbox}")
-        
         return content_bbox
 
+
+
+    def smart_crop_pdf2(self, input_pdf, pages_config=None):
+        """Умная обрезка PDF: пиксельный анализ только для А4, остальное — через нормализацию"""
+        
+        specification_dir = os.path.join(self.base_path, "Приложение. Спецификация/_latex/img")
+        e3_dir = os.path.join(self.base_path, "Приложение. Схема Э3/_latex/img")
+        e4_dir = os.path.join(self.base_path, "Приложение. Схема Э4.1/_latex/img")
+        pn_dir = os.path.join(self.base_path, "Приложение. Перечень надписей/_latex/img")
+        
+        target_folders = [specification_dir, e3_dir, e4_dir]
+        Logger.info("Очистка целевых папок...")
+        for folder in target_folders:
+            if os.path.exists(folder):
+                for f in os.listdir(folder):
+                    if f.lower().endswith('.pdf'):
+                        try: os.remove(os.path.join(folder, f))
+                        except: pass
+            else: os.makedirs(folder, exist_ok=True)
+        
+        doc = fitz.open(input_pdf)
+        total_pages = len(doc)
+        Logger.info(f"УМНАЯ ОБРЕЗКА PDF: {input_pdf} ({total_pages} стр.)")
+        
+        page_prefix_map = {}
+        if pages_config:
+            for prefix, page_nums in pages_config.items():
+                for page_num in page_nums: page_prefix_map[page_num] = prefix
+
+        for page_num in range(total_pages):
+            page = doc[page_num]
+            original_rotation = page.rotation
+            media_box = page.mediabox
+            
+            width_mm = media_box.width * 0.352778
+            height_mm = media_box.height * 0.352778
+            
+            # Сброс поворота для корректного анализа
+            if original_rotation != 0: page.set_rotation(0)
+            page.set_cropbox(media_box)
+            
+            # 1. Поиск границ через объекты
+            content_bbox = self._find_content_bbox(page)
+            final_bbox = None
+
+            # Проверка на "полную страницу" (рамку/фон)
+            is_full_page = False
+            if content_bbox:
+                is_full_page = (
+                    abs(content_bbox.width - media_box.width) < 15 and 
+                    abs(content_bbox.height - media_box.height) < 15
+                )
+
+            # ЛОГИКА ВЫБОРА МЕТОДА
+            is_a4 = (abs(width_mm - 210) < 10 and abs(height_mm - 297) < 10) or \
+                    (abs(width_mm - 297) < 10 and abs(height_mm - 210) < 10)
+            
+            # Для отладки можно временно включить is_a4 = True, чтобы проверить пиксели на всех листах
+            is_a4 = True 
+
+            if not is_full_page and is_a4:
+                Logger.debug(f"⚠️ Стр. {page_num+1} (А4): Полный контент. Pixel Analysis...")
+                
+                # Pre-crop для удаления шума по краям
+                pre_crop_val = 3
+                pre_rect = fitz.Rect(
+                    media_box.x0 + pre_crop_val, media_box.y0 + pre_crop_val,
+                    media_box.x1 - pre_crop_val, media_box.y1 - pre_crop_val
+                )
+                page.set_cropbox(pre_rect)
+                
+                # Пиксельный анализ
+                final_bbox = self._auto_crop_by_pixels(page, padding=5, dpi=150)
+                
+                # Возвращаем CropBox к исходному, так как final_bbox уже в абсолютных координатах
+                page.set_cropbox(media_box)
+
+            elif content_bbox:
+                # === ИСПРАВЛЕНИЕ ЗДЕСЬ ===
+                # Используем нормализацию вместо простого паддинга
+                Logger.debug(f"Стр. {page_num+1}: Нормализация по объектам")
+                final_bbox = self._normalize_page(page, content_bbox)
+            
+            if final_bbox:
+                page.set_cropbox(final_bbox)
+                page.set_trimbox(final_bbox)
+                page.set_bleedbox(final_bbox)
+                page.set_artbox(final_bbox)
+            
+            # Восстановление поворота
+            if original_rotation != 0: page.set_rotation(original_rotation)
+            
+            # Сохранение
+            new_doc = fitz.open()
+            new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
+            
+            output_filename = f"СЭП_{page_num + 1}.pdf" 
+            output_subfolder = e3_dir
+            
+            if pages_config and (page_num + 1) in page_prefix_map:
+                prefix = page_prefix_map[page_num + 1]
+                page_list = pages_config[prefix]
+                index_in_list = page_list.index(page_num + 1) + 1
+                
+                if prefix == 'ПН': 
+                    new_doc.close()
+                    continue
+                elif prefix == 'ПЭ': output_subfolder = specification_dir
+                elif prefix == 'СЭП': output_subfolder = e3_dir
+                elif prefix == 'СЭС': output_subfolder = e4_dir
+                
+                output_filename = f"{prefix}_{index_in_list}.pdf"
+
+            output_path = os.path.join(output_subfolder, output_filename)
+            new_doc.save(output_path)
+            new_doc.close()
+            Logger.info(f"Сохранено: {output_path}")
+
+        doc.close()
+        Logger.info("Обработка завершена!")
+
+
+
+
+
+
+
+    def smart_crop_pdf(self, input_pdf, pages_config=None):
+        """Умная обрезка PDF: пиксельный анализ только для А4, остальное — стандартно"""
+        
+        # ... (код инициализации папок и очистки остается без изменений) ...
+        specification_dir = os.path.join(self.base_path, "Приложение. Спецификация/_latex/img")
+        e3_dir = os.path.join(self.base_path, "Приложение. Схема Э3/_latex/img")
+        e4_dir = os.path.join(self.base_path, "Приложение. Схема Э4.1/_latex/img")
+        pn_dir = os.path.join(self.base_path, "Приложение. Перечень надписей/_latex/img")
+        
+        target_folders = [specification_dir, e3_dir, e4_dir]
+        Logger.info("Очистка целевых папок...")
+        for folder in target_folders:
+            if os.path.exists(folder):
+                for f in os.listdir(folder):
+                    if f.lower().endswith('.pdf'):
+                        try: os.remove(os.path.join(folder, f))
+                        except: pass
+            else: os.makedirs(folder, exist_ok=True)
+        
+        doc = fitz.open(input_pdf)
+        total_pages = len(doc)
+        Logger.info(f"УМНАЯ ОБРЕЗКА PDF: {input_pdf} ({total_pages} стр.)")
+        
+        page_prefix_map = {}
+        if pages_config:
+            for prefix, page_nums in pages_config.items():
+                for page_num in page_nums: page_prefix_map[page_num] = prefix
+
+        for page_num in range(total_pages):
+            page = doc[page_num]
+            original_rotation = page.rotation
+            media_box = page.mediabox
+            
+            # Определяем размер в мм для проверки формата
+            width_mm = media_box.width * 0.352778
+            height_mm = media_box.height * 0.352778
+            
+            # Сброс поворота для корректного анализа
+            if original_rotation != 0: page.set_rotation(0)
+            page.set_cropbox(media_box)
+            
+            # 1. Поиск границ через объекты
+            content_bbox = self._find_content_bbox(page)
+
+            #if content_bbox:
+                # Применяем нормализацию
+                #content_bbox = self._normalize_page(page, content_bbox)
+                #page.set_cropbox(content_bbox)
+
+
+            # Проверка на "полную страницу" (рамку/фон)
+            is_full_page = False
+            if content_bbox:
+                is_full_page = (
+                    abs(content_bbox.width - media_box.width) < 15 and 
+                    abs(content_bbox.height - media_box.height) < 15
+                )
+
+            final_bbox = None
+
+            # ЛОГИКА ВЫБОРА МЕТОДА: Только для А4 используем пиксели
+            is_a4 = (abs(width_mm - 210) < 10 and abs(height_mm - 297) < 10) or \
+                    (abs(width_mm - 297) < 10 and abs(height_mm - 210) < 10)
+
+
+            Logger.debug(f"⚠️ Стр. {page_num+1} (А4): Полный контент. Pre-crop + Pixel Analysis...")
+            
+            # Шаг А: Pre-crop (срезаем 1pt шума)
+            pre_crop_val = 3
+            pre_rect = fitz.Rect(
+                media_box.x0 + pre_crop_val, media_box.y0 + pre_crop_val,
+                media_box.x1 - pre_crop_val, media_box.y1 - pre_crop_val
+            )
+            page.set_cropbox(pre_rect)
+            
+            # Шаг Б: Пиксельный анализ
+            final_bbox = self._auto_crop_by_pixels(page, padding=5, dpi=150)
+
+            final_bbox = self._normalize_page(page, final_bbox)
+
+            # Возвращаем CropBox к исходному для корректных координат
+            page.set_cropbox(media_box)
+
+            # ===== ВСТАВИТЬ ЗДЕСЬ =====
+            if final_bbox is None:
+                Logger.warning(f"Стр. {page_num+1}: пустая страница, пропуск")
+                continue
+            # ==========================
+
+            if final_bbox:
+                page.set_cropbox(final_bbox)
+                page.set_trimbox(final_bbox)
+                page.set_bleedbox(final_bbox)
+                page.set_artbox(final_bbox)
+            
+            # Восстановление поворота
+            if original_rotation != 0: page.set_rotation(original_rotation)
+            
+            # ... (ваша логика сохранения страниц с префиксами СЭП, ПЭ и т.д.) ...
+            new_doc = fitz.open()
+            new_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
+            
+            output_filename = f"СЭП_{page_num + 1}.pdf" 
+            output_subfolder = e3_dir
+            
+            if pages_config and (page_num + 1) in page_prefix_map:
+                prefix = page_prefix_map[page_num + 1]
+                page_list = pages_config[prefix]
+                index_in_list = page_list.index(page_num + 1) + 1
+                
+                if prefix == 'ПН': new_doc.close(); continue
+                elif prefix == 'ПЭ': output_subfolder = specification_dir
+                elif prefix == 'СЭП': output_subfolder = e3_dir
+                elif prefix == 'СЭС': output_subfolder = e4_dir
+                
+                output_filename = f"{prefix}_{index_in_list}.pdf"
+
+            output_path = os.path.join(output_subfolder, output_filename)
+            new_doc.save(output_path)
+            new_doc.close()
+            Logger.info(f"Сохранено: {output_path}")
+
+        doc.close()
+        Logger.info("Обработка завершена!")

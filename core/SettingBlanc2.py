@@ -5,7 +5,7 @@
 import re
 import json
 
-from docxtpl import DocxTemplate
+from docxtpl import DocxTemplate, RichText
 from docx import Document
 
 from utils.docx_handler import add_new_section, add_new_section_landscape
@@ -399,6 +399,21 @@ class SettingBlanc:
 
 
 
+    # Создаем функцию-помощник для конвертации \n в объект RichText
+    def _format_multiline(self, text):
+        if not text:
+            return ""
+        
+        # ВАЖНО: Превращаем текстовые '\n' в настоящие переносы строк
+        text = str(text).replace('\\n', '\n')
+        
+        rt = RichText()
+        # docxtpl автоматически превратит \n в разрывы строк при рендеринге
+        rt.add(text)
+        
+        return rt
+
+
     def create_template(self, mode):
 
         # Загрузка вспомогательного файла, где находятится полное описание
@@ -429,7 +444,7 @@ class SettingBlanc:
         second_part = order_to_str(HmiSpecification["OrderCode"])
 
         context = {
-            "title": self.device_data['full_description'],
+            "title": self._format_multiline(self.device_data['full_description']),
             "code": self.device_data['setting_blanc_code'],
             "device_order_code": first_part,
             "hmi_order_code": second_part,
@@ -480,7 +495,7 @@ class SettingBlanc:
         
         # Сохраняем
 
-        name_for_save = f"{self.code} Бланк уставок {self.device_data['name']} ред.{last_version['edition']}"
+        name_for_save = f"БУ {self.device_data['name']} ({self.code} )_v.{last_version['edition']}"
         #name_for_save = f"{self.code} Бланк уставок Core4"
         doc.save(f'{name_for_save}.docx')
         Logger.info(f"Бланк уставок сохранен: '{name_for_save}.docx'")
