@@ -17,10 +17,10 @@ import shutil
 from logger.logger import Logger
 
 # НАСТРОЙКИ ПУТЕЙ К АВТОКАДУ
-#ACAD = "AutoCAD.Application" # для AutoCad 2026
-ACAD = "AutoCAD.Application.23" # для AutoCad 2020
-#ACONSOLE = r"C:\Program Files\Autodesk\AutoCAD 2026\accoreconsole.exe"
-ACONSOLE = r"C:\Program Files\Autodesk\AutoCAD 2020\accoreconsole.exe"
+ACAD = "AutoCAD.Application" # для AutoCad 2026
+#ACAD = "AutoCAD.Application.23" # для AutoCad 2020
+ACONSOLE = r"C:\Program Files\Autodesk\AutoCAD 2026\accoreconsole.exe"
+#ACONSOLE = r"C:\Program Files\Autodesk\AutoCAD 2020\accoreconsole.exe"
 
 
 class CabDwgProcessor:
