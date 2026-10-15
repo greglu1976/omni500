@@ -142,12 +142,12 @@ class Application:
                 width=300
             )
             dpg.add_button(
-                label="Обновить приложения выбранных РЭ ШЭТ",
+                label="Пакетное обновление РЭ ШЭТ",
                 callback=self.update_shets,
                 width=300
             )
             dpg.add_button(
-                label="Посмотреть конфигурацию для РЭ ШЭТ",
+                label="Настройка пакетного обновления РЭ ШЭТ",
                 callback=self.show_config_shets,
                 width=300
             )
@@ -170,7 +170,7 @@ class Application:
 
         Logger.set_container("log_content", "log_window")
         
-        dpg.create_viewport(title="OMNI-500 v.0.0.12hf2  18.09.26", width=1215, height=680)
+        dpg.create_viewport(title="OMNI-500 v.0.0.13  15.10.26", width=1215, height=680)
         dpg.setup_dearpygui()
 
 
@@ -286,8 +286,70 @@ class Application:
 
 
     def update_shets(self):
+        import os
+        from pathlib import Path
         from utils.cabinets import process_cabinets
-        process_cabinets()
+        from core.Manual import Manual
+
+        def _canonical(p) -> str:
+            """Канонизация пути без обращения к ФС (работает и с UNC, и с локальными)."""
+            s = str(p)
+            s = s.replace('/', '\\')      # единые разделители
+            s = os.path.normpath(s)       # убираем ./, .., двойные слеши
+            s = os.path.normcase(s)       # регистр (на Windows — lower)
+            return s
+
+        # Заранее построим индекс по канонизированному пути и по имени папки
+        by_path = {}
+        by_folder = {}
+        for device in self.devices_data:
+            dev_path = (device.get("path_to_latex_desc") or "").strip()
+            if not dev_path or dev_path.lower() == "none":
+                continue
+            try:
+                by_path[_canonical(dev_path)] = device
+                folder = Path(dev_path.replace('/', '\\')).name.strip().lower()
+                by_folder.setdefault(folder, device)
+            except Exception as e:
+                Logger.debug(f"[MATCH] Не удалось обработать путь {dev_path!r}: {e}")
+
+        def renew_abbrs_for_cabinet(cab_path: Path, latex_mode: str):
+            if latex_mode != 'update':
+                return
+
+            cab_key = _canonical(cab_path)
+            cab_folder = cab_path.name.strip().lower()
+
+            device = by_path.get(cab_key)
+
+            if device is None:
+                device = by_folder.get(cab_folder)
+                if device is not None:
+                    Logger.debug(f"[MATCH] {cab_path.name} сопоставлен по имени папки")
+
+            if device is None:
+                Logger.warning(
+                    f"Не найдено устройство для шкафа {cab_path.name}. "
+                    f"Ключ пути: {cab_key}. Проверьте path_to_latex_desc в devices.ini."
+                )
+                return
+
+            device_data = self.device_data_manager.get_device_by_name_and_version(
+                name=device["name"], version=device["version"]
+            )
+            if not device_data:
+                Logger.warning(
+                    f"Не найдено device_data для {device['name']} v{device['version']}"
+                )
+                return
+
+            try:
+                Manual(device_data=device_data).renew_abbrs()
+                Logger.info(f"Перечень сокращений обновлён: {device['name']}")
+            except Exception as e:
+                Logger.error(f"Ошибка renew_abbrs для {cab_path.name}: {e}")
+
+        process_cabinets(on_before_cabinet=renew_abbrs_for_cabinet)
 
 
     def show_config_shets(self):

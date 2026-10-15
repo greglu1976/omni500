@@ -173,7 +173,7 @@ def process_cabinet(cab_path, latex_mode, revision, date, save_path):
     Logger.success(f"Готово: {cab_path.name}")
 
 
-def process_cabinets():
+def process_cabinets(on_before_cabinet=None):
     config = configparser.ConfigParser()
     config.read('cabinets.cfg', encoding='utf-8')
 
@@ -196,7 +196,16 @@ def process_cabinets():
     else: target = find_cabinets_by_numbers(names_list, all_cabs)
 
     for cab in target:
-        process_cabinet(path / cab, latex_mode, revision, date, save_path)
+        cab_path = path / cab
+
+        # Pre-hook: например, обновление перечня сокращений (только в режиме update)
+        if on_before_cabinet:
+            try:
+                on_before_cabinet(cab_path, latex_mode)
+            except Exception as e:
+                Logger.error(f"Ошибка в pre-hook для {cab}: {e}")
+
+        process_cabinet(cab_path, latex_mode, revision, date, save_path)
 
     Logger.success("Пакетная обработка завершена")
 
